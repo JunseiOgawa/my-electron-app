@@ -20,6 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let timeScale = 30; // デフォルトは30分間隔
     let moveInterval;//矢印のオフセット移動を定期更新して長押し動作用
 
+    const TOTAL_MINUTES = 24 * 60; // 24時間分の総分数
+    let intervalWidth; // グローバル変数
+    let TOTAL_TIMELINE_WIDTH; // グローバル変数
+    
+
     // タイムラインの表示設定
     const VIEW_WIDTH = 800; // キャンバスの表示幅
     const TIMELINE_PADDING = 40; // 左右のパディング
@@ -33,16 +38,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startMovingLeft() {
         moveInterval = setInterval(() => {
-            timelineOffset += 50;
-            drawTimeline();
-        }, 500); // 500ミリ秒ごとにオフセットを増加
+            const maxOffset = TOTAL_TIMELINE_WIDTH - VIEW_WIDTH;
+            if (timelineOffset < maxOffset) {
+                timelineOffset += 50;
+                drawTimeline();
+            }
+        }, 500);
     }
-
+    
     function startMovingRight() {
         moveInterval = setInterval(() => {
-            timelineOffset -= 50;
-            drawTimeline();
-        }, 500); // 500ミリ秒ごとにオフセットを減少
+            if (timelineOffset > 0) {
+                timelineOffset -= 50;
+                drawTimeline();
+            }
+        }, 500);
     }
 
     function stopMoving() {
@@ -80,39 +90,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawTimeIntervals() {
-        const minutesPerDay = 24 * 60;
+        const minutesPerDay = TOTAL_MINUTES; // 24時間分の分数
         const intervalCount = minutesPerDay / timeScale;
-        const intervalWidth = (VIEW_WIDTH - (TIMELINE_PADDING * 2)) / (minutesPerDay / timeScale);
-
+        intervalWidth = (VIEW_WIDTH - (TIMELINE_PADDING * 2)) / intervalCount; // グローバル変数に設定
+        TOTAL_TIMELINE_WIDTH = minutesPerDay * intervalWidth; // グローバル変数に設定
         ctx.save();
-        // クリッピング領域の設定
         ctx.beginPath();
         ctx.rect(TIMELINE_PADDING, 0, VIEW_WIDTH - (TIMELINE_PADDING * 2), canvas.height);
         ctx.clip();
-
         for (let i = 0; i <= intervalCount; i++) {
             const x = TIMELINE_PADDING + (i * intervalWidth) + timelineOffset;
-            
             if (x >= TIMELINE_PADDING && x <= VIEW_WIDTH - TIMELINE_PADDING) {
                 ctx.beginPath();
                 ctx.moveTo(x, 20);
                 ctx.lineTo(x, canvas.height);
                 ctx.strokeStyle = '#ccc';
                 ctx.stroke();
-
-                // 時間ラベルの表示
                 const minutes = i * timeScale;
                 const hours = Math.floor(minutes / 60);
                 const mins = minutes % 60;
                 const timeLabel = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-                
                 ctx.fillStyle = '#000';
                 ctx.font = '12px Arial';
                 ctx.fillText(timeLabel, x - 20, 15);
             }
         }
         ctx.restore();
-    }
+    }    
 
     function initTimeline() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
