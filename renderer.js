@@ -18,9 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragging = false;
     let dragIndex = -1;
     let timeScale = 30; // デフォルトは30分間隔
+    let moveInterval;//矢印のオフセット移動を定期更新して長押し動作用
 
     // タイムラインの表示設定
-    const VIEW_WIDTH = 500; // キャンバスの表示幅
+    const VIEW_WIDTH = 800; // キャンバスの表示幅
     const TIMELINE_PADDING = 40; // 左右のパディング
     
     function updateDate() {
@@ -29,6 +30,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setInterval(updateDate, 1000);
+
+    function startMovingLeft() {
+        moveInterval = setInterval(() => {
+            timelineOffset += 50;
+            drawTimeline();
+        }, 500); // 500ミリ秒ごとにオフセットを増加
+    }
+
+    function startMovingRight() {
+        moveInterval = setInterval(() => {
+            timelineOffset -= 50;
+            drawTimeline();
+        }, 500); // 500ミリ秒ごとにオフセットを減少
+    }
+
+    function stopMoving() {
+        clearInterval(moveInterval);
+    }
+
+    moveLeftButton.addEventListener('mousedown', startMovingLeft);
+    moveRightButton.addEventListener('mousedown', startMovingRight);
+    moveLeftButton.addEventListener('mouseup', stopMoving);
+    moveRightButton.addEventListener('mouseup', stopMoving);
+
+    // ボタンの外にマウスが出ても止まるようにする
+    document.addEventListener('mouseup', stopMoving);
 
     function initLayers() {
         boxes = [];
@@ -104,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.save();
         // クリッピング領域の設定
         ctx.beginPath();
-        ctx.rect(TIMELINE_PADDING, 0, VIEW_WIDTH - (TIMELINE_PADDING * 2), canvas.height);
+        ctx.rect(TIMELINE_PADDING, 0, VIEW_WIDTH - (TIMELINE_PADDING * 1), canvas.height);
         ctx.clip();
 
         boxes.forEach(box => {
