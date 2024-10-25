@@ -1,112 +1,133 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Video Editing Timeline</title>
+    <title>スケジュール管理</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet">
     <style>
-        #date {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
         }
-        #calendar {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            height: 100vh;
         }
-        #timeline-container {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            overflow-y: scroll;
-            max-height: 300px;
+        .current-date {
+            text-align: right;
+            grid-column: 2;
         }
-        #controls {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-            align-items: center;
+        .current-month {
+            grid-column: 1;
         }
-        .button {
-            padding: 5px 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 3px;
+        .input-panel {
+            grid-column: 1;
+            grid-row: 2;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
         }
-        .button:hover {
-            background-color: #0056b3;
+        .timeline-container {
+            grid-column: 2;
+            grid-row: 2;
+            border: 1px solid #ddd;
+            border-radius: 8px;
         }
-        .button.active {
-            background-color: #0056b3;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+        .input-group {
+            margin-bottom: 15px;
         }
-        .control-group {
-            display: flex;
-            gap: 5px;
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
         }
-        .divider {
-            width: 1px;
-            height: 24px;
-            background-color: #ccc;
-            margin: 0 5px;
-        }
-        canvas {
-            border: 1px solid #000;
-        }
-        table {
-            border-collapse: collapse;
+        .input-group input, .input-group textarea {
             width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
-        th, td {
-            border: 1px solid #000;
-            padding: 4px;
-            text-align: center;
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
-        th {
-            background-color: #f8f9fa;
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .add-button {
+            background: #4CAF50;
+            color: white;
+        }
+        .clear-button {
+            background: #f44336;
+            color: white;
+        }
+        #context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 0;
+            display: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        }
+        .context-menu-item {
+            padding: 5px 20px;
+            cursor: pointer;
+        }
+        .context-menu-item:hover {
+            background: #f5f5f5;
         }
     </style>
 </head>
 <body>
-    <div id="date"></div>
-    <div id="calendar">
-        <table id="calendarTable"></table>
-    </div>
-    <div id="timeline-container">
-        <div id="controls">
-            <div class="control-group">
-                <button class="button" id="moveLeft"><<</button>
-                <button class="button" id="moveRight">>></button>
+    <div class="container">
+        <div class="current-date" id="currentDate"></div>
+        <div class="current-month" id="currentMonth"></div>
+        
+        <div class="input-panel">
+            <div class="input-group">
+                <label>日付:</label>
+                <input type="date" id="scheduleDate">
             </div>
-            <div class="divider"></div>
-            <div class="control-group">
-                <button class="button" id="addLayer">Add Layer</button>
-                <button class="button" id="removeLayer">Remove Layer</button>
+            <div class="input-group">
+                <label>開始時間:</label>
+                <input type="time" id="startTime">
             </div>
-            <div class="divider"></div>
-            <div class="control-group">
-                <button class="button" id="scale5min">5分</button>
-                <button class="button" id="scale30min">30分</button>
-                <button class="button" id="scale1hour">1時間</button>
+            <div class="input-group">
+                <label>終了時間:</label>
+                <input type="time" id="endTime">
+            </div>
+            <div class="input-group">
+                <label>タイトル:</label>
+                <input type="text" id="title">
+            </div>
+            <div class="input-group">
+                <label>詳細メモ:</label>
+                <textarea id="memo" rows="4"></textarea>
+            </div>
+            <div class="button-group">
+                <button class="add-button" id="addButton">追加</button>
+                <button class="clear-button" id="clearButton">クリア</button>
             </div>
         </div>
-        <canvas id="timeline" width="500" height="300"></canvas>
+        
+        <div class="timeline-container">
+            <div id="timeline"></div>
+        </div>
     </div>
+
+    <div id="context-menu">
+        <div class="context-menu-item" id="deleteItem">削除</div>
+    </div>
+
     <script src="renderer.js"></script>
 </body>
 </html>

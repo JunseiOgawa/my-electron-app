@@ -1,309 +1,142 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const canvas = document.getElementById('timeline');
-    const ctx = canvas.getContext('2d');
-    const moveLeftButton = document.getElementById('moveLeft');
-    const moveRightButton = document.getElementById('moveRight');
-    const addLayerButton = document.getElementById('addLayer');
-    const removeLayerButton = document.getElementById('removeLayer');
-    const scale5minButton = document.getElementById('scale5min');
-    const scale30minButton = document.getElementById('scale30min');
-    const scale1hourButton = document.getElementById('scale1hour');
-    const dateElement = document.getElementById('date');
-    const calendarTable = document.getElementById('calendarTable');
-    const timelineContainer = document.getElementById('timeline-container');
-
-    let boxes = [];
-    let layerCount = 5;
-    let timelineOffset = 0;
-    let dragging = false;
-    let dragIndex = -1;
-    let timeScale = 30; // デフォルトは30分間隔
-    let moveInterval;//矢印のオフセット移動を定期更新して長押し動作用
-
-    const TOTAL_MINUTES = 24 * 60; // 24時間分の総分数
-    let intervalWidth; // グローバル変数
-    let TOTAL_TIMELINE_WIDTH; // グローバル変数
+// 現在の日付と月を表示
+function updateDateTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    const monthStr = now.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'long'
+    });
     
+    document.getElementById('currentDate').textContent = dateStr;
+    document.getElementById('currentMonth').textContent = monthStr;
+}
 
-    // タイムラインの表示設定
-    const VIEW_WIDTH = 800; // キャンバスの表示幅
-    const TIMELINE_PADDING = 40; // 左右のパディング
-    
-    function updateDate() {
-        const now = new Date();
-        dateElement.innerText = now.toLocaleString();
-    }
+// タイムライン初期化
+let timeline;
+let items;
+let contextMenu;
+let selectedItem = null;
 
-    setInterval(updateDate, 1000);
+function initTimeline() {
+    const container = document.getElementById('timeline');
+    items = new vis.DataSet();
 
-    function startMovingLeft() {
-        moveInterval = setInterval(() => {
-            const maxOffset = TOTAL_TIMELINE_WIDTH - VIEW_WIDTH;
-            if (timelineOffset < maxOffset) {
-                timelineOffset += 50;
-                drawTimeline();
-            }
-        }, 500);
-    }
-    
-    function startMovingRight() {
-        moveInterval = setInterval(() => {
-            if (timelineOffset > 0) {
-                timelineOffset -= 50;
-                drawTimeline();
-            }
-        }, 500);
-    }
-
-    function stopMoving() {
-        clearInterval(moveInterval);
-    }
-
-    moveLeftButton.addEventListener('mousedown', startMovingLeft);
-    moveRightButton.addEventListener('mousedown', startMovingRight);
-    moveLeftButton.addEventListener('mouseup', stopMoving);
-    moveRightButton.addEventListener('mouseup', stopMoving);
-
-    // ボタンの外にマウスが出ても止まるようにする
-    document.addEventListener('mouseup', stopMoving);
-
-    function initLayers() {
-        boxes = [];
-        for (let i = 0; i < layerCount; i++) {
-            boxes.push({ 
-                x: TIMELINE_PADDING, 
-                y: 60 + i * 60, 
-                width: 100, 
-                height: 50, 
-                color: getRandomColor() 
-            });
+    const options = {
+        start: new Date().setHours(0, 0, 0, 0),
+        end: new Date().setHours(24, 0, 0, 0),
+        timeAxis: { scale: 'hour', step: 1 },
+        orientation: 'top',
+        height: '500px',
+        margin: {
+            item: 20
         }
-    }
+    };
 
-    function getRandomColor() {
-        const letters = '0123456789ABCDEF';
-        let color = '#';
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)];
+    timeline = new vis.Timeline(container, items, options);
+}
+
+// コンテキストメニュー初期化
+function initContextMenu() {
+    contextMenu = document.getElementById('context-menu');
+    document.getElementById('deleteItem').addEventListener('click', () => {
+        if (selectedItem) {
+            items.remove(selectedItem);
+            hideContextMenu();
         }
-        return color;
-    }
+    });
 
-    function drawTimeIntervals() {
-        const minutesPerDay = TOTAL_MINUTES; // 24時間分の分数
-        const intervalCount = minutesPerDay / timeScale;
-        intervalWidth = (VIEW_WIDTH - (TIMELINE_PADDING * 2)) / intervalCount; // グローバル変数に設定
-        TOTAL_TIMELINE_WIDTH = minutesPerDay * intervalWidth; // グローバル変数に設定
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(TIMELINE_PADDING, 0, VIEW_WIDTH - (TIMELINE_PADDING * 2), canvas.height);
-        ctx.clip();
-        for (let i = 0; i <= intervalCount; i++) {
-            const x = TIMELINE_PADDING + (i * intervalWidth) + timelineOffset;
-            if (x >= TIMELINE_PADDING && x <= VIEW_WIDTH - TIMELINE_PADDING) {
-                ctx.beginPath();
-                ctx.moveTo(x, 20);
-                ctx.lineTo(x, canvas.height);
-                ctx.strokeStyle = '#ccc';
-                ctx.stroke();
-                const minutes = i * timeScale;
-                const hours = Math.floor(minutes / 60);
-                const mins = minutes % 60;
-                const timeLabel = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-                ctx.fillStyle = '#000';
-                ctx.font = '12px Arial';
-                ctx.fillText(timeLabel, x - 20, 15);
-            }
+    // クリックでコンテキストメニューを非表示
+    document.addEventListener('click', (e) => {
+        if (!contextMenu.contains(e.target)) {
+            hideContextMenu();
         }
-        ctx.restore();
-    }    
+    });
+}
 
-    function initTimeline() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#f8f9fa';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+// コンテキストメニューを表示
+function showContextMenu(x, y) {
+    contextMenu.style.display = 'block';
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+}
+
+// コンテキストメニューを非表示
+function hideContextMenu() {
+    contextMenu.style.display = 'none';
+    selectedItem = null;
+}
+
+// フォームをクリア
+function clearForm() {
+    document.getElementById('scheduleDate').value = '';
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
+    document.getElementById('title').value = '';
+    document.getElementById('memo').value = '';
+}
+
+// イベントリスナーの設定
+function setupEventListeners() {
+    // 追加ボタン
+    document.getElementById('addButton').addEventListener('click', () => {
+        const date = document.getElementById('scheduleDate').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        const title = document.getElementById('title').value;
+        const memo = document.getElementById('memo').value;
+
+        if (!date || !startTime || !endTime || !title) {
+            alert('必須項目を入力してください');
+            return;
+        }
+
+        const startDateTime = new Date(date + 'T' + startTime);
+        const endDateTime = new Date(date + 'T' + endTime);
+
+        items.add({
+            id: Date.now(),
+            content: title,
+            start: startDateTime,
+            end: endDateTime,
+            title: memo  // ツールチップとして表示
+        });
+
+        clearForm();
+    });
+
+    // クリアボタン
+    document.getElementById('clearButton').addEventListener('click', clearForm);
+
+    // タイムライン上の右クリック
+    timeline.on('contextmenu', (props) => {
+        props.event.preventDefault();
+        const item = timeline.getItemAt(props.event.center);
         
-        // 外側の領域を暗くする
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, TIMELINE_PADDING, canvas.height);
-        ctx.fillRect(VIEW_WIDTH - TIMELINE_PADDING, 0, TIMELINE_PADDING, canvas.height);
-
-        drawTimeIntervals();
-    }
-
-    function drawBoxes() {
-        ctx.save();
-        // クリッピング領域の設定
-        ctx.beginPath();
-        ctx.rect(TIMELINE_PADDING, 0, VIEW_WIDTH - (TIMELINE_PADDING * 1), canvas.height);
-        ctx.clip();
-
-        boxes.forEach(box => {
-            const xPos = box.x + timelineOffset;
-            if (xPos + box.width >= TIMELINE_PADDING && xPos <= VIEW_WIDTH - TIMELINE_PADDING) {
-                ctx.fillStyle = box.color;
-                ctx.fillRect(xPos, box.y, box.width, box.height);
-            }
-        });
-        ctx.restore();
-    }
-
-    function drawTimeline() {
-        initTimeline();
-        drawBoxes();
-    }
-
-    function updateScaleButtons() {
-        const scaleButtons = [scale5minButton, scale30minButton, scale1hourButton];
-        const scaleValues = [5, 30, 60];
-        
-        scaleButtons.forEach((button, index) => {
-            if (timeScale === scaleValues[index]) {
-                button.classList.add('active');
-            } else {
-                button.classList.remove('active');
-            }
-        });
-    }
-
-    // スケール変更ボタンのイベントリスナーを更新
-    scale5minButton.addEventListener('click', () => {
-        timeScale = 5;
-        updateScaleButtons();
-        drawTimeline();
-    });
-
-    scale30minButton.addEventListener('click', () => {
-        timeScale = 30;
-        updateScaleButtons();
-        drawTimeline();
-    });
-
-    scale1hourButton.addEventListener('click', () => {
-        timeScale = 60;
-        updateScaleButtons();
-        drawTimeline();
-    });
-
-    // 初期化時にデフォルトのスケールボタンをアクティブに
-    updateScaleButtons();
-
-    // イベントリスナー
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        if (x > TIMELINE_PADDING && x < VIEW_WIDTH - TIMELINE_PADDING) {
-            boxes.forEach((box, index) => {
-                const boxX = box.x + timelineOffset;
-                if (x > boxX && x < boxX + box.width && y > box.y && y < box.y + box.height) {
-                    dragging = true;
-                    dragIndex = index;
-                }
-            });
+        if (item) {
+            selectedItem = item.id;
+            showContextMenu(props.event.pageX, props.event.pageY);
         }
     });
+}
 
-    canvas.addEventListener('mouseup', () => {
-        dragging = false;
-        dragIndex = -1;
-    });
+// 初期化
+function initialize() {
+    updateDateTime();
+    initTimeline();
+    initContextMenu();
+    setupEventListeners();
+    
+    // 1分ごとに日付を更新
+    setInterval(updateDateTime, 60000);
 
-    canvas.addEventListener('mousemove', (e) => {
-        if (dragging && dragIndex !== -1) {
-            const rect = canvas.getBoundingClientRect();
-            let newX = e.clientX - rect.left - boxes[dragIndex].width / 2 - timelineOffset;
-            
-            // ドラッグ範囲の制限
-            if (newX < TIMELINE_PADDING) newX = TIMELINE_PADDING;
-            if (newX > VIEW_WIDTH - TIMELINE_PADDING - boxes[dragIndex].width) {
-                newX = VIEW_WIDTH - TIMELINE_PADDING - boxes[dragIndex].width;
-            }
-            
-            boxes[dragIndex].x = newX;
-            drawTimeline();
-        }
-    });
+    // 今日の日付をデフォルト値として設定
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('scheduleDate').value = today;
+}
 
-    // スケール変更ボタンのイベントリスナー
-    scale5minButton.addEventListener('click', () => {
-        timeScale = 5;
-        drawTimeline();
-    });
-
-    scale30minButton.addEventListener('click', () => {
-        timeScale = 30;
-        drawTimeline();
-    });
-
-    scale1hourButton.addEventListener('click', () => {
-        timeScale = 60;
-        drawTimeline();
-    });
-
-    moveLeftButton.addEventListener('click', () => {
-        timelineOffset += 50;
-        drawTimeline();
-    });
-
-    moveRightButton.addEventListener('click', () => {
-        timelineOffset -= 50;
-        drawTimeline();
-    });
-
-    addLayerButton.addEventListener('click', () => {
-        layerCount++;
-        boxes.push({ 
-            x: TIMELINE_PADDING, 
-            y: 60 + (layerCount - 1) * 60, 
-            width: 100, 
-            height: 50, 
-            color: getRandomColor() 
-        });
-        drawTimeline();
-    });
-
-    removeLayerButton.addEventListener('click', () => {
-        if (layerCount > 1) {
-            boxes.pop();
-            layerCount--;
-            drawTimeline();
-        }
-    });
-
-    function createCalendar() {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        const firstDay = new Date(year, month, 1).getDay();
-        const lastDate = new Date(year, month + 1, 0).getDate();
-
-        let table = '<tr>';
-        const days = ['日', '月', '火', '水', '木', '金', '土'];
-
-        for (let i = 0; i < days.length; i++) {
-            table += '<th>' + days[i] + '</th>';
-        }
-        table += '</tr><tr>';
-
-        for (let i = 0; i < firstDay; i++) {
-            table += '<td></td>';
-        }
-
-        for (let date = 1; date <= lastDate; date++) {
-            if ((firstDay + date - 1) % 7 == 0) {
-                table += '</tr><tr>';
-            }
-            table += '<td>' + date + '</td>';
-        }
-
-        table += '</tr>';
-        calendarTable.innerHTML = table;
-    }
-
-    createCalendar();
-    initLayers();
-    drawTimeline();
-    updateDate();
-});
+// アプリケーション開始
+initialize();
