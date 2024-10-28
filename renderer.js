@@ -21,14 +21,8 @@ let items;
 let contextMenu;
 let selectedItem = null;
 
-// タイムライン初期化
 function initTimeline() {
     const container = document.getElementById('timeline');
-
-    // htmlのtimeline-containerの高さを取得
-    const timelineContainer = document.querySelector('.timeline-container');
-    const containerHeight = timelineContainer.clientHeight + 'px';  // 動的に高さを取得 clientHeight
-
     items = new vis.DataSet();
 
     const options = {
@@ -36,7 +30,7 @@ function initTimeline() {
         end: new Date().setHours(24, 0, 0, 0),
         timeAxis: { scale: 'hour', step: 1 },
         orientation: 'top',
-        height: containerHeight,  // ここで動的な高さを設定
+        height: '500px',
         margin: {
             item: 20
         }
@@ -44,7 +38,6 @@ function initTimeline() {
 
     timeline = new vis.Timeline(container, items, options);
 }
-
 
 // コンテキストメニュー初期化
 function initContextMenu() {
@@ -89,31 +82,31 @@ function clearForm() {
 // イベントリスナーの設定
 function setupEventListeners() {
     // 追加ボタン
-document.getElementById('addButton').addEventListener('click', () => {
-    const date = document.getElementById('scheduleDate').value;
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-    const title = document.getElementById('title').value;
-    const memo = document.getElementById('memo').value;
+    document.getElementById('addButton').addEventListener('click', () => {
+        const date = document.getElementById('scheduleDate').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        const title = document.getElementById('title').value;
+        const memo = document.getElementById('memo').value;
 
-    if (!date || !startTime || !endTime || !title) {
-        alert('必須項目を入力してください');
-        return;
-    }
+        if (!date || !startTime || !endTime || !title) {
+            alert('必須項目を入力してください');
+            return;
+        }
 
-    const startDateTime = new Date(date + 'T' + startTime);
-    const endDateTime = new Date(date + 'T' + endTime);
+        const startDateTime = new Date(date + 'T' + startTime);
+        const endDateTime = new Date(date + 'T' + endTime);
 
-    items.add({
-        id: Date.now(),
-        content: title,
-        start: startDateTime,
-        end: endDateTime,
-        title: memo  // ツールチップとして表示
+        items.add({
+            id: Date.now(),
+            content: title,
+            start: startDateTime,
+            end: endDateTime,
+            title: memo  // ツールチップとして表示
+        });
+
+        clearForm();
     });
-
-    clearForm();
-});
 
     // クリアボタン
     document.getElementById('clearButton').addEventListener('click', clearForm);
@@ -145,5 +138,7 @@ function initialize() {
     document.getElementById('scheduleDate').value = today;
 }
 
-// アプリケーション開始
-initialize();
+// DOMContentLoadedイベントリスナー　ここで初期化しないとタイムラインが正しタイムラインが表示されない
+document.addEventListener('DOMContentLoaded', function() {
+    initialize();
+});
