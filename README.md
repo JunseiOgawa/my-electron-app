@@ -1,4 +1,3 @@
-
    ``` npm i ```を実行してmodule_nodeが必須
 ## 起動時
 ``npm start run ``もしくは ``electron .``

@@ -138,5 +138,7 @@ function initialize() {
     document.getElementById('scheduleDate').value = today;
 }
 
-// アプリケーション開始
-initialize();
+// DOMContentLoadedイベントリスナー　ここで初期化しないとタイムラインが正しタイムラインが表示されない
+document.addEventListener('DOMContentLoaded', function() {
+    initialize();
+});
