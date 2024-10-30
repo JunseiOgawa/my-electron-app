@@ -1,4 +1,4 @@
-// 現在の日付と月を表示
+// 現在の日付を表示
 function updateDateTime() {
     const now = new Date();
     const dateStr = now.toLocaleDateString('ja-JP', {
@@ -18,12 +18,18 @@ function updateDateTime() {
 // タイムライン初期化
 let timeline;
 let items;
+let groups;
 let contextMenu;
 let selectedItem = null;
 
 function initTimeline() {
     const container = document.getElementById('timeline');
     items = new vis.DataSet();
+    groups = new vis.DataSet([
+        { id: 1, content: 'レイヤー 1' },
+        { id: 2, content: 'レイヤー 2' },
+        { id: 3, content: 'レイヤー 3' }
+    ]);
 
     const options = {
         start: new Date().setHours(0, 0, 0, 0),
@@ -36,10 +42,10 @@ function initTimeline() {
         }
     };
 
-    timeline = new vis.Timeline(container, items, options);
+    timeline = new vis.Timeline(container, items, groups, options);
 }
 
-// コンテキストメニュー初期化
+// コンテキストメニュー初期
 function initContextMenu() {
     contextMenu = document.getElementById('context-menu');
     document.getElementById('deleteItem').addEventListener('click', () => {
@@ -77,6 +83,7 @@ function clearForm() {
     document.getElementById('endTime').value = '';
     document.getElementById('title').value = '';
     document.getElementById('memo').value = '';
+    document.getElementById('group').value = '1';
 }
 
 // イベントリスナーの設定
@@ -88,6 +95,7 @@ function setupEventListeners() {
         const endTime = document.getElementById('endTime').value;
         const title = document.getElementById('title').value;
         const memo = document.getElementById('memo').value;
+        const layer = parseInt(document.getElementById('group').value, 10);
 
         if (!date || !startTime || !endTime || !title) {
             alert('必須項目を入力してください');
@@ -102,7 +110,8 @@ function setupEventListeners() {
             content: title,
             start: startDateTime,
             end: endDateTime,
-            title: memo  // ツールチップとして表示
+            title: memo,  // ツールチップとして表示
+            group: layer  // 指定されたグループに追加
         });
 
         clearForm();
@@ -129,16 +138,51 @@ function initialize() {
     initTimeline();
     initContextMenu();
     setupEventListeners();
-    
+
     // 1分ごとに日付を更新
     setInterval(updateDateTime, 60000);
 
     // 今日の日付をデフォルト値として設定
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('scheduleDate').value = today;
+
+    // Electronからのメッセージを受信
+    window.electron.receive('open_file', (data) => {
+        items.add({
+            id: data.id,
+            content: data.title,
+            start: new Date(data.start),
+            end: new Date(data.end),
+            title: data.memo,
+            group: parseInt(data.layerNum, 10)  // layerNumをグループとして使用
+        });
+    });
+
+    // スケジュールデータを取得して保存する
+    window.electron.receive('get_schedule', () => {
+        const schedule = items.get();
+        window.electron.send('save_schedule', schedule);
+    });
 }
 
-// DOMContentLoadedイベントリスナー　ここで初期化しないとタイムラインが正しタイムラインが表示されない
+// DOMContentLoadedイベントリスナー
 document.addEventListener('DOMContentLoaded', function() {
     initialize();
+});
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electron', {
+    receive: (channel, func) => {
+        let validChannels = ['open_file', 'get_schedule'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.on(channel, (event, ...args) => func(...args));
+        }
+    },
+    send: (channel, data) => {
+        let validChannels = ['save_schedule'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.send(channel, data);
+        }
+    }
 });
