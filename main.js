@@ -7,7 +7,7 @@ let mainWindow;
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 800,
-        height: 650,
+        height: 700,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -88,16 +88,25 @@ app.on('ready', () => {
     createWindow();
 
     // アプリ起動時に前回のスケジュールを読み込む
-    const schedulePath = path.join(__dirname, 'save', 'schedule.json');
-    if (fs.existsSync(schedulePath)) {
-        fs.readFile(schedulePath, 'utf-8', (err, data) => {
-            if (err) {
-                console.error('スケジュールの読み込みに失敗しました:', err);
-                return;
-            }
-            mainWindow.webContents.send('open_file', JSON.parse(data));
-        });
+    const saveDir = path.join(__dirname, 'save');
+    const schedulePath = path.join(saveDir, 'schedule.json');
+    
+    //定義しているフォルダがない場合は作成
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir);
     }
+    //上と同じくファイルがない場合は作成
+    if (!fs.existsSync(schedulePath)) {
+        fs.writeFileSync(schedulePath, JSON.stringify([]));
+    }
+    //ファイルがある場合は読み込み
+    fs.readFile(schedulePath, 'utf-8', (err, data) => {
+        if (err) {
+            console.error('スケジュールの読み込みに失敗しました:', err);
+            return;
+        }
+        mainWindow.webContents.send('open_file', JSON.parse(data));
+    });
 });
 
 app.on('window-all-closed', () => {
@@ -114,7 +123,13 @@ app.on('activate', () => {
 
 // スケジュールデータを保存するIPCイベント
 ipcMain.on('save_schedule', (event, data) => {
-    const schedulePath = path.join(__dirname, 'save', 'schedule.json');
+    const saveDir = path.join(__dirname, 'save');
+    const schedulePath = path.join(saveDir, 'schedule.json');
+
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir);
+    }
+
     fs.writeFile(schedulePath, JSON.stringify(data, null, 2), (err) => {
         if (err) {
             console.error('スケジュールの保存に失敗しました:', err);

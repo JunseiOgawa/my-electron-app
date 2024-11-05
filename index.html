@@ -5,6 +5,9 @@
     <title>スケジュール管理</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/flatpickr.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/flatpickr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/l10n/ja.js"></script>
     <style>
         body {
             margin: 0;
@@ -98,38 +101,26 @@
         
         <div class="input-panel">
             <div class="input-group">
-                <label>日付:</label>
-                <input type="date" id="scheduleDate">
-            </div>
-            <div class="input-group">
-                <label>開始時間:</label>
-                <input type="time" id="startTime">
-            </div>
-            <div class="input-group">
-                <label>終了時間:</label>
-                <input type="time" id="endTime">
+                <label>日付範囲:</label>
+                <input type="text" id="dateRange">
             </div>
             <div class="input-group">
                 <label>タイトル:</label>
                 <input type="text" id="title">
             </div>
             <div class="input-group">
-                <label>詳細メモ:</label>
-                <textarea id="memo" rows="4"></textarea>
+                <label>メモ:</label>
+                <textarea id="memo"></textarea>
             </div>
             <div class="input-group">
-                <label>グループ:</label>
-                <select id="group">
-                    <option value="1">レイヤー 1</option>
-                    <option value="2">レイヤー 2</option>
-                    <option value="3">レイヤー 3</option>
-                    <option value="4">レイヤー 4</option>
-                    <option value="5">レイヤー 5</option>
-                </select>
+                <label>レイヤー:</label>
+                <input type="number" id="group" value="1">
             </div>
+            <input type="hidden" id="scheduleDate">
+            <input type="hidden" id="endDate">
             <div class="button-group">
-                <button class="add-button" id="addButton">追加</button>
-                <button class="clear-button" id="clearButton">クリア</button> 
+                <button id="addButton" class="add-button">追加</button>
+                <button id="clearButton" class="clear-button">クリア</button>
             </div>
         </div>
         

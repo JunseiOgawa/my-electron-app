@@ -7,8 +7,9 @@
 
 #　環境
 フレームワーク
--electron
+- electron
 ライブラリ
--vis.js
+- vis.js
+- flatpickr
 実行
-node.js
+- node.js

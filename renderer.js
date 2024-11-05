@@ -78,9 +78,9 @@ function hideContextMenu() {
 
 // フォームをクリア
 function clearForm() {
+    document.getElementById('dateRange').value = '';
     document.getElementById('scheduleDate').value = '';
-    document.getElementById('startTime').value = '';
-    document.getElementById('endTime').value = '';
+    document.getElementById('endDate').value = '';
     document.getElementById('title').value = '';
     document.getElementById('memo').value = '';
     document.getElementById('group').value = '1';
@@ -90,28 +90,27 @@ function clearForm() {
 function setupEventListeners() {
     // 追加ボタン
     document.getElementById('addButton').addEventListener('click', () => {
-        const date = document.getElementById('scheduleDate').value;
-        const startTime = document.getElementById('startTime').value;
-        const endTime = document.getElementById('endTime').value;
+        const startDate = document.getElementById('scheduleDate').value;
+        const endDate = document.getElementById('endDate').value;
         const title = document.getElementById('title').value;
         const memo = document.getElementById('memo').value;
         const layer = parseInt(document.getElementById('group').value, 10);
 
-        if (!date || !startTime || !endTime || !title) {
+        if (!startDate || !endDate || !title) {
             alert('必須項目を入力してください');
             return;
         }
 
-        const startDateTime = new Date(date + 'T' + startTime);
-        const endDateTime = new Date(date + 'T' + endTime);
+        const startDateTime = new Date(startDate);
+        const endDateTime = new Date(endDate);
 
         items.add({
             id: Date.now(),
             content: title,
             start: startDateTime,
             end: endDateTime,
-            title: memo,  // ツールチップとして表示
-            group: layer  // 指定されたグループに追加
+            title: memo,
+            group: layer
         });
 
         clearForm();
@@ -145,29 +144,42 @@ function initialize() {
     // 今日の日付をデフォルト値として設定
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('scheduleDate').value = today;
-
-    // Electronからのメッセージを受信
-    window.electron.receive('open_file', (data) => {
-        items.add({
-            id: data.id,
-            content: data.title,
-            start: new Date(data.start),
-            end: new Date(data.end),
-            title: data.memo,
-            group: parseInt(data.layerNum, 10)  // layerNumをグループとして使用
-        });
-    });
-
-    // スケジュールデータを取得して保存する
-    window.electron.receive('get_schedule', () => {
-        const schedule = items.get();
-        window.electron.send('save_schedule', schedule);
-    });
 }
-
-// DOMContentLoadedイベントリスナー
+//DOMの読み込みが完了したら初期化
 document.addEventListener('DOMContentLoaded', function() {
     initialize();
+
+    // flatpickrの初期化
+    flatpickr("#dateRange", {
+        mode: "range",
+        dateFormat: "Y-m-d",
+        locale: "ja",
+        onChange: function(selectedDates) {
+            if (selectedDates.length === 2) {
+                const startDate = selectedDates[0];
+                const endDate = selectedDates[1];
+                document.getElementById('scheduleDate').value = startDate.toISOString().split('T')[0];
+                document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+            }
+        }
+    });
+});
+
+window.electron.receive('get_schedule', () => {
+    const schedule = items.get();
+    window.electron.send('save_schedule', schedule);
+});
+
+// Electronからのメッセージ受信　jsonの中身読み込み
+window.electron.receive('open_file', (data) => {
+    items.add({
+        id: data.id,
+        content: data.title,
+        start: new Date(data.start),
+        end: new Date(data.end),
+        title: data.memo,
+        group: parseInt(data.layerNum, 10)  // layerNumをグループとして使用
+    });
 });
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -185,4 +197,10 @@ contextBridge.exposeInMainWorld('electron', {
             ipcRenderer.send(channel, data);
         }
     }
+});
+
+// スケジュールデータを取得してメインプロセスに送信
+ipcRenderer.on('get_schedule', () => {
+    const schedule = items.get(); // itemsはタイムラインのデータセット
+    ipcRenderer.send('save_schedule', schedule);
 });
