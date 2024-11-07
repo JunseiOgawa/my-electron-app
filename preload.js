@@ -1,20 +1,3 @@
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('electron', {
-    receive: (channel, func) => {
-        let validChannels = ['open_file', 'get_schedule'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => func(...args));
-        }
-    },
-    send: (channel, data) => {
-        let validChannels = ['save_schedule'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.send(channel, data);
-        }
-    }
-});
-
 // 現在の日付と月を表示
 function updateDateTime() {
     const now = new Date();

@@ -11,7 +11,9 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            devTools: !app.isPackaged // パッケージ化されていない場合に開発者ツールを有効にする
+            devTools: !app.isPackaged, // パッケージ化されていない場合に開発者ツールを有効にする
+            nodeIntegration: false, 
+            enableRemoteModule: false
         }
     });
 
@@ -53,6 +55,10 @@ function createMenu() {
                     label: 'Save',
                     accelerator: 'CmdOrCtrl+S', // ショートカットキーを設定
                     click: () => { saveSchedule() } // 実行される関数
+                },
+                {
+                    label: 'Exit',
+                    click: () => { app.quit() } // アプリを終了
                 }
             ]
         }
@@ -69,8 +75,13 @@ function openFile() {
     }).then(result => {
         if (!result.canceled && result.filePaths.length > 0) {
             const filePath = result.filePaths[0];
-            const fileContent = fs.readFileSync(filePath, 'utf-8');
-            mainWindow.webContents.send('open_file', JSON.parse(fileContent));
+            fs.readFile(filePath, 'utf-8', (err, data) => {
+                if (err) {
+                    console.error('ファイルの読み込みに失敗しました:', err);
+                    return;
+                }
+                mainWindow.webContents.send('open_file', JSON.parse(data));
+            });
         }
     }).catch(err => {
         console.error('Failed to open file:', err);
@@ -91,15 +102,15 @@ app.on('ready', () => {
     const saveDir = path.join(__dirname, 'save');
     const schedulePath = path.join(saveDir, 'schedule.json');
     
-    //定義しているフォルダがない場合は作成
+    // 定義しているフォルダがない場合は作成
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir);
     }
-    //上と同じくファイルがない場合は作成
+    // ファイルがない場合は作成
     if (!fs.existsSync(schedulePath)) {
         fs.writeFileSync(schedulePath, JSON.stringify([]));
     }
-    //ファイルがある場合は読み込み
+    // ファイルがある場合は読み込み
     fs.readFile(schedulePath, 'utf-8', (err, data) => {
         if (err) {
             console.error('スケジュールの読み込みに失敗しました:', err);

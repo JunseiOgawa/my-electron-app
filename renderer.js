@@ -52,6 +52,7 @@ function initContextMenu() {
         if (selectedItem) {
             items.remove(selectedItem);
             hideContextMenu();
+            saveSchedule();
         }
     });
 
@@ -80,10 +81,17 @@ function hideContextMenu() {
 function clearForm() {
     document.getElementById('dateRange').value = '';
     document.getElementById('scheduleDate').value = '';
-    document.getElementById('endDate').value = '';
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
     document.getElementById('title').value = '';
     document.getElementById('memo').value = '';
     document.getElementById('group').value = '1';
+}
+
+// スケジュールを保存
+function saveSchedule() {
+    const schedule = items.get();
+    window.electron.send('save_schedule', schedule);
 }
 
 // イベントリスナーの設定
@@ -91,18 +99,25 @@ function setupEventListeners() {
     // 追加ボタン
     document.getElementById('addButton').addEventListener('click', () => {
         const startDate = document.getElementById('scheduleDate').value;
+        const startTime = document.getElementById('startTime').value;
         const endDate = document.getElementById('endDate').value;
+        const endTime = document.getElementById('endTime').value;
         const title = document.getElementById('title').value;
         const memo = document.getElementById('memo').value;
         const layer = parseInt(document.getElementById('group').value, 10);
 
-        if (!startDate || !endDate || !title) {
+        if (!startDate || !startTime || !endDate || !endTime || !title) {
             alert('必須項目を入力してください');
             return;
         }
 
-        const startDateTime = new Date(startDate);
-        const endDateTime = new Date(endDate);
+        const startDateTime = new Date(`${startDate}T${startTime}`);
+        const endDateTime = new Date(`${endDate}T${endTime}`);
+
+        if (startDateTime >= endDateTime) {
+            alert('開始時刻は終了時刻より前に設定してください');
+            return;
+        }
 
         items.add({
             id: Date.now(),
@@ -113,6 +128,7 @@ function setupEventListeners() {
             group: layer
         });
 
+        saveSchedule();
         clearForm();
     });
 
@@ -145,6 +161,7 @@ function initialize() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('scheduleDate').value = today;
 }
+
 //DOMの読み込みが完了したら初期化
 document.addEventListener('DOMContentLoaded', function() {
     initialize();
@@ -165,42 +182,22 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// スケジュールを保存
 window.electron.receive('get_schedule', () => {
-    const schedule = items.get();
-    window.electron.send('save_schedule', schedule);
+    saveSchedule();
 });
 
 // Electronからのメッセージ受信　jsonの中身読み込み
 window.electron.receive('open_file', (data) => {
-    items.add({
-        id: data.id,
-        content: data.title,
-        start: new Date(data.start),
-        end: new Date(data.end),
-        title: data.memo,
-        group: parseInt(data.layerNum, 10)  // layerNumをグループとして使用
+    items.clear();
+    data.forEach(item => {
+        items.add({
+            id: item.id,
+            content: item.content, // 'title' ではなく 'content' を使用
+            start: new Date(item.start),
+            end: new Date(item.end),
+            title: item.title, // メモが必要な場合、適切なフィールドを使用
+            group: parseInt(item.group, 10) // 'layerNum' ではなく 'group' を使用
+        });
     });
-});
-
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('electron', {
-    receive: (channel, func) => {
-        let validChannels = ['open_file', 'get_schedule'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => func(...args));
-        }
-    },
-    send: (channel, data) => {
-        let validChannels = ['save_schedule'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.send(channel, data);
-        }
-    }
-});
-
-// スケジュールデータを取得してメインプロセスに送信
-ipcRenderer.on('get_schedule', () => {
-    const schedule = items.get(); // itemsはタイムラインのデータセット
-    ipcRenderer.send('save_schedule', schedule);
 });

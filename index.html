@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>スケジュール管理</title>
+    <title>タイムラインでスケジュール管理ソフト</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/flatpickr.min.css" rel="stylesheet">
@@ -103,6 +103,14 @@
             <div class="input-group">
                 <label>日付範囲:</label>
                 <input type="text" id="dateRange">
+            </div>
+            <div class="input-group">
+                <label>開始時刻:</label>
+                <input type="time" id="startTime">
+            </div>
+            <div class="input-group">
+                <label>終了時刻:</label>
+                <input type="time" id="endTime">
             </div>
             <div class="input-group">
                 <label>タイトル:</label>
