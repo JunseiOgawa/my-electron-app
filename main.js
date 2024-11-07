@@ -135,18 +135,20 @@ app.on('activate', () => {
 
 // スケジュールデータを保存するIPCイベント
 ipcMain.on('save_schedule', (event, data) => {
+    console.log('Received schedule data to save:', data);
     const saveDir = path.join(__dirname, 'save');
     const schedulePath = path.join(saveDir, 'schedule.json');
 
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir);
+        console.log(`Created directory: ${saveDir}`);
     }
 
     fs.writeFile(schedulePath, JSON.stringify(data, null, 2), (err) => {
         if (err) {
             console.error('スケジュールの保存に失敗しました:', err);
         } else {
-            console.log('スケジュールが保存されました');
+            console.log(`スケジュールが保存されました: ${schedulePath}`);
         }
     });
 });

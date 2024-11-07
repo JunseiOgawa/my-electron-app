@@ -45,15 +45,43 @@ function initTimeline() {
     timeline = new vis.Timeline(container, items, groups, options);
 }
 
-// コンテキストメニュー初期
+// 削除確認モーダルを表示する関数
+function showDeleteModal() {
+    document.getElementById('delete-modal-overlay').style.display = 'block';
+    document.getElementById('delete-modal').style.display = 'block';
+}
+
+// 削除確認モーダルを非表示にする関数
+function hideDeleteModal() {
+    document.getElementById('delete-modal-overlay').style.display = 'none';
+    document.getElementById('delete-modal').style.display = 'none';
+}
+
+// 削除確認モーダルのイベントリスナー
+function setupDeleteModalListeners() {
+    const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+    const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+
+    confirmDeleteButton.addEventListener('click', () => {
+        if (selectedItem) {
+            console.log(`Deleting item with ID: ${selectedItem}`);
+            items.remove(selectedItem);
+            saveSchedule(); // スケジュールを保存
+        } else {
+            console.log('No item selected for deletion.');
+        }
+        hideDeleteModal();
+    });
+
+    cancelDeleteButton.addEventListener('click', hideDeleteModal);
+}
+
+// コンテキストメニュー初期化
 function initContextMenu() {
     contextMenu = document.getElementById('context-menu');
     document.getElementById('deleteItem').addEventListener('click', () => {
-        if (selectedItem) {
-            items.remove(selectedItem);
-            hideContextMenu();
-            saveSchedule();
-        }
+        hideContextMenu();
+        showDeleteModal();
     });
 
     // クリックでコンテキストメニューを非表示
@@ -61,6 +89,11 @@ function initContextMenu() {
         if (!contextMenu.contains(e.target)) {
             hideContextMenu();
         }
+    });
+
+    // コンテキストメニュー内のクリックイベントがドキュメントに伝播しないようにする
+    contextMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 }
 
@@ -106,7 +139,24 @@ function hideModal() {
     document.getElementById('modal').style.display = 'none';
 }
 
-// イベントリスナーの設定
+// モーダルクリック時のイベント伝播停止
+function setupModalClickHandlers() {
+    const modal = document.getElementById('modal');
+    const deleteModal = document.getElementById('delete-modal');
+
+    modal.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    deleteModal.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // オーバーレイをクリックしたらモーダルを閉じる
+    document.getElementById('modal-overlay').addEventListener('click', hideModal);
+    document.getElementById('delete-modal-overlay').addEventListener('click', hideDeleteModal);
+}
+
 function setupEventListeners() {
     // 追加ボタン
     document.getElementById('addButton').addEventListener('click', () => {
@@ -159,13 +209,19 @@ function setupEventListeners() {
     // タイムライン上の右クリック
     timeline.on('contextmenu', (props) => {
         props.event.preventDefault();
-        const item = timeline.getItemAt(props.event.center);
+        const item = props.item; 
         
         if (item) {
             selectedItem = item.id;
             showContextMenu(props.event.pageX, props.event.pageY);
         }
     });
+
+    // 削除確認モーダルのイベントリスナーを設定
+    setupDeleteModalListeners();
+
+    // モーダルクリックイベントの設定
+    setupModalClickHandlers();
 }
 
 // 初期化
