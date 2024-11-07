@@ -94,6 +94,18 @@ function saveSchedule() {
     window.electron.send('save_schedule', schedule);
 }
 
+// モーダルを表示する関数
+function showModal() {
+    document.getElementById('modal-overlay').style.display = 'block';
+    document.getElementById('modal').style.display = 'block';
+}
+
+// モーダルを非表示にする関数
+function hideModal() {
+    document.getElementById('modal-overlay').style.display = 'none';
+    document.getElementById('modal').style.display = 'none';
+}
+
 // イベントリスナーの設定
 function setupEventListeners() {
     // 追加ボタン
@@ -130,10 +142,19 @@ function setupEventListeners() {
 
         saveSchedule();
         clearForm();
+        hideModal(); // スケジュール追加後にモーダルを閉じる
     });
 
     // クリアボタン
     document.getElementById('clearButton').addEventListener('click', clearForm);
+
+    // モーダルの閉じるボタン
+    document.getElementById('closeModalButton').addEventListener('click', hideModal);
+
+    // タイムラインのダブルクリックでモーダルを開く（必要に応じて）
+    timeline.on('doubleClick', () => {
+        showModal();
+    });
 
     // タイムライン上の右クリック
     timeline.on('contextmenu', (props) => {

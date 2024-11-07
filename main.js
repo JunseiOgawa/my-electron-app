@@ -13,7 +13,8 @@ function createWindow() {
             contextIsolation: true,
             devTools: !app.isPackaged, // パッケージ化されていない場合に開発者ツールを有効にする
             nodeIntegration: false, 
-            enableRemoteModule: false
+            enableRemoteModule: false,
+            contentSecurityPolicy: "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com;"//cssが読み込めない対策
         }
     });
 
