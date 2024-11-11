@@ -101,7 +101,7 @@ function initContextMenu() {
     });
 }
 
-// コンテキストメニューを表示
+// コ��テキストメニューを表示
 function showContextMenu(x, y) {
     contextMenu.style.display = 'block';
     contextMenu.style.left = x + 'px';
@@ -133,7 +133,7 @@ function saveSchedule() {
 // モーダルを表示する関数
 function showModal() {
     document.getElementById('modal-overlay').style.display = 'block';
-    document.getElementById('modal').style.display = 'block';
+    document.getElementById('modal').style.display = 'grid'; // display: grid に変更
 }
 
 // モーダルを非表示にする関数
@@ -141,6 +141,11 @@ function hideModal() {
     document.getElementById('modal-overlay').style.display = 'none';
     document.getElementById('modal').style.display = 'none';
 }
+
+// 初期化時にモーダルを非表示にする
+document.addEventListener('DOMContentLoaded', function() {
+    hideModal();
+});
 
 // モーダルクリック時のイベント伝播停止
 function setupModalClickHandlers() {
@@ -173,11 +178,13 @@ function initialize() {
     // 今日の日付をデフォルト値として設定
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('scheduleDate').value = today;
+
+    hideModal(); // 初期化時にモーダルを非表示にする
 }
 
 // タイムライン上の右クリック
 function setupEventListeners() {
-    // 追加ボタン
+    // 追加��タン
     document.getElementById('addButton').addEventListener('click', () => {
         const startDate = document.getElementById('scheduleDate').value;
         const startTime = document.getElementById('startTime').value;
@@ -196,13 +203,16 @@ function setupEventListeners() {
             alert('開始時刻は終了時刻より前に設定してください');
             return;
         }
+        const color = document.getElementById('color').value; // カラー入力値を取得
+
         items.add({
             id: Date.now(),
             content: title,
             start: startDateTime,
             end: endDateTime,
             title: memo,
-            group: layer
+            group: layer,
+            style: `background-color: ${color};` // スタイルを追加
         });
         saveSchedule();
         clearForm();
