@@ -64,16 +64,20 @@ function setupDeleteModalListeners() {
 
     confirmDeleteButton.addEventListener('click', () => {
         if (selectedItem) {
-            console.log(`Deleting item with ID: ${selectedItem}`);
-            items.remove(selectedItem);
+            console.log(`Deleting item with ID: ${selectedItem.id}`);
+            items.remove(selectedItem.id);
             saveSchedule(); // スケジュールを保存
+            selectedItem = null; // 削除が完了したら selectedItem をクリア
         } else {
             console.log('No item selected for deletion.');
         }
         hideDeleteModal();
     });
 
-    cancelDeleteButton.addEventListener('click', hideDeleteModal);
+    cancelDeleteButton.addEventListener('click', () => {
+        selectedItem = null; // キャンセル時にも selectedItem をクリア
+        hideDeleteModal();
+    });
 }
 
 // コンテキストメニュー初期化
@@ -107,7 +111,6 @@ function showContextMenu(x, y) {
 // コンテキストメニューを非表示
 function hideContextMenu() {
     contextMenu.style.display = 'none';
-    selectedItem = null;
 }
 
 // フォームをクリア
@@ -157,73 +160,6 @@ function setupModalClickHandlers() {
     document.getElementById('delete-modal-overlay').addEventListener('click', hideDeleteModal);
 }
 
-function setupEventListeners() {
-    // 追加ボタン
-    document.getElementById('addButton').addEventListener('click', () => {
-        const startDate = document.getElementById('scheduleDate').value;
-        const startTime = document.getElementById('startTime').value;
-        const endDate = document.getElementById('endDate').value;
-        const endTime = document.getElementById('endTime').value;
-        const title = document.getElementById('title').value;
-        const memo = document.getElementById('memo').value;
-        const layer = parseInt(document.getElementById('group').value, 10);
-
-        if (!startDate || !startTime || !endDate || !endTime || !title) {
-            alert('必須項目を入力してください');
-            return;
-        }
-
-        const startDateTime = new Date(`${startDate}T${startTime}`);
-        const endDateTime = new Date(`${endDate}T${endTime}`);
-
-        if (startDateTime >= endDateTime) {
-            alert('開始時刻は終了時刻より前に設定してください');
-            return;
-        }
-
-        items.add({
-            id: Date.now(),
-            content: title,
-            start: startDateTime,
-            end: endDateTime,
-            title: memo,
-            group: layer
-        });
-
-        saveSchedule();
-        clearForm();
-        hideModal(); // スケジュール追加後にモーダルを閉じる
-    });
-
-    // クリアボタン
-    document.getElementById('clearButton').addEventListener('click', clearForm);
-
-    // モーダルの閉じるボタン
-    document.getElementById('closeModalButton').addEventListener('click', hideModal);
-
-    // タイムラインのダブルクリックでモーダルを開く（必要に応じて）
-    timeline.on('doubleClick', () => {
-        showModal();
-    });
-
-    // タイムライン上の右クリック
-    timeline.on('contextmenu', (props) => {
-        props.event.preventDefault();
-        const item = props.item; 
-        
-        if (item) {
-            selectedItem = item.id;
-            showContextMenu(props.event.pageX, props.event.pageY);
-        }
-    });
-
-    // 削除確認モーダルのイベントリスナーを設定
-    setupDeleteModalListeners();
-
-    // モーダルクリックイベントの設定
-    setupModalClickHandlers();
-}
-
 // 初期化
 function initialize() {
     updateDateTime();
@@ -237,6 +173,67 @@ function initialize() {
     // 今日の日付をデフォルト値として設定
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('scheduleDate').value = today;
+}
+
+// タイムライン上の右クリック
+function setupEventListeners() {
+    // 追加ボタン
+    document.getElementById('addButton').addEventListener('click', () => {
+        const startDate = document.getElementById('scheduleDate').value;
+        const startTime = document.getElementById('startTime').value;
+        const endDate = document.getElementById('endDate').value;
+        const endTime = document.getElementById('endTime').value;
+        const title = document.getElementById('title').value;
+        const memo = document.getElementById('memo').value;
+        const layer = parseInt(document.getElementById('group').value, 10);
+        if (!startDate || !startTime || !endDate || !endTime || !title) {
+            alert('必須項目を入力してください');
+            return;
+        }
+        const startDateTime = new Date(`${startDate}T${startTime}`);
+        const endDateTime = new Date(`${endDate}T${endTime}`);
+        if (startDateTime >= endDateTime) {
+            alert('開始時刻は終了時刻より前に設定してください');
+            return;
+        }
+        items.add({
+            id: Date.now(),
+            content: title,
+            start: startDateTime,
+            end: endDateTime,
+            title: memo,
+            group: layer
+        });
+        saveSchedule();
+        clearForm();
+        hideModal(); // スケジュール追加後にモーダルを閉じる
+    });
+    // クリアボタン
+    document.getElementById('clearButton').addEventListener('click', clearForm);
+    // モーダルの閉じるボタン
+    document.getElementById('closeModalButton').addEventListener('click', hideModal);
+    // タイムラインのダブルクリックでモーダルを開く（必要に応じて）
+    timeline.on('doubleClick', () => {
+        showModal();
+    });
+    // タイムライン上の右クリック
+    timeline.on('contextmenu', (props) => {
+        props.event.preventDefault();
+        const item = props.item; 
+        
+        if (item) {
+            selectedItem = items.get(item); // ここで selectedItem を設定
+            console.log(`Item selected for deletion: ${selectedItem.id}`); // ログを追加
+            showContextMenu(props.event.pageX, props.event.pageY);
+        } else {
+            selectedItem = null;
+        }
+    });
+
+    // 削除確認モーダルのイベントリスナーを設定
+    setupDeleteModalListeners();
+    // モーダルクリックイベントの設定
+    setupModalClickHandlers();
 }
 
 //DOMの読み込みが完了したら初期化
