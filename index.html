@@ -236,6 +236,7 @@
         </div>
     </div>
     <div id="context-menu">
+        <div class="context-menu-item" id="editItem">編集</div>
         <div class="context-menu-item" id="deleteItem">削除</div>
     </div>
     <!-- モーダルウィンドウの更新 -->
@@ -286,6 +287,45 @@
             <button id="confirmDeleteButton" class="clear-button">削除</button>
             <button id="cancelDeleteButton" class="add-button">キャンセル</button>
         </div>
+    </div>
+    <!-- 編集用モーダル -->
+    <div id="edit-modal-overlay"></div>
+    <div id="edit-modal" onclick="event.stopPropagation()">
+        <div class="input-group">
+            <label>日付範囲:</label>
+            <input type="text" id="editDateRange">
+        </div>
+        <div class="input-group">
+            <label>開始時刻:</label>
+            <input type="time" id="editStartTime">
+        </div>
+        <div class="input-group">
+            <label>終了時刻:</label>
+            <input type="time" id="editEndTime">
+        </div>
+        <div class="input-group">
+            <label>タイトル:</label>
+            <input type="text" id="editTitle">
+        </div>
+        <div class="input-group">
+            <label>メモ:</label>
+            <textarea id="editMemo"></textarea>
+        </div>
+        <div class="input-group">
+            <label>カラー:</label>
+            <input type="color" id="editColor">
+        </div>
+        <div class="input-group">
+            <label>レイヤー:</label>
+            <input type="number" id="editGroup" value="1">
+        </div>
+        <input type="hidden" id="editScheduleDate">
+        <input type="hidden" id="editEndDate">
+        <div class="button-group">
+            <button id="updateButton" class="add-button">変更する</button>
+            <button id="editClearButton" class="clear-button">クリア</button>
+        </div>
+        <button id="closeEditModalButton">閉じる</button>
     </div>
     <script src="renderer.js"></script>
 </body>

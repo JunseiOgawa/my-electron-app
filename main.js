@@ -11,14 +11,36 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            devTools: !app.isPackaged, // パッケージ化されていない場合に開発者ツールを有効にする
-            nodeIntegration: false, 
+            devTools: !app.isPackaged,
+            nodeIntegration: false,
             enableRemoteModule: false,
-            contentSecurityPolicy: "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com;"//cssが読み込めない対策
+            contentSecurityPolicy: "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com;"
         }
     });
 
     mainWindow.loadFile('index.html');
+
+    // DOMContentLoadedイベントを待ってからスケジュールを読み込む
+    mainWindow.webContents.on('dom-ready', () => {
+        const saveDir = path.join(__dirname, 'save');
+        const schedulePath = path.join(saveDir, 'schedule.json');
+        
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir);
+        }
+        
+        if (!fs.existsSync(schedulePath)) {
+            fs.writeFileSync(schedulePath, JSON.stringify([]));
+        }
+        
+        fs.readFile(schedulePath, 'utf-8', (err, data) => {
+            if (err) {
+                console.error('スケジュールの読み込みに失敗しました:', err);
+                return;
+            }
+            mainWindow.webContents.send('open_file', JSON.parse(data));
+        });
+    });
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
