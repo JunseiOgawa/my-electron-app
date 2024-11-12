@@ -22,6 +22,7 @@ let groups;
 let contextMenu;
 let selectedItem = null;
 
+// renderer.js の initTimeline 関数を修正
 function initTimeline() {
     const container = document.getElementById('timeline');
     items = new vis.DataSet();
@@ -31,18 +32,89 @@ function initTimeline() {
         { id: 3, content: 'レイヤー 3' }
     ]);
 
+    // 初期設定は日表示
     const options = {
         start: new Date().setHours(0, 0, 0, 0),
         end: new Date().setHours(24, 0, 0, 0),
         timeAxis: { scale: 'hour', step: 1 },
-        orientation: 'bottom',  
+        orientation: 'bottom',
         height: '500px',
-        margin: {
-            item: 20
+        margin: { item: 20 },
+        locale: 'ja', // ローカライズ設定
+        locales: {
+            ja: {
+                current: '現在',
+                time: '時間',
+                date: '日付',
+                // 必要に応じて他の翻訳を追加
+            }
         }
     };
 
     timeline = new vis.Timeline(container, items, groups, options);
+    setupTimeScaleButtons(); // 粒度変更ボタンの設定
+}
+
+// vis.js の表示範囲を制限するために changeTimeScale 関数を修正
+function changeTimeScale(scale) {
+    const now = new Date();
+    let start, end, timeScale;
+
+    switch(scale) {
+        case 'month':
+            // 月表示のロジック
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            start = new Date(currentYear, currentMonth - 1, 28);
+            end = new Date(currentYear, currentMonth + 1, 3);
+            timeScale = { scale: 'day', step: 1 };
+            break;
+        case 'week':
+            // 現在の週の開始日（例：月曜日）を計算
+            const dayOfWeek = now.getDay(); // 0=日曜日, 1=月曜日, ...,6=土曜日
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() + diffToMonday);
+            weekStart.setHours(0, 0, 0, 0);
+            start = weekStart;
+            end = new Date(weekStart);
+            end.setDate(end.getDate() + 6);
+            timeScale = { scale: 'day', step: 1 };
+            break;
+        case 'day':
+            // 前後1日を含む3日間表示
+            start = new Date(now);
+            start.setDate(now.getDate() - 1);
+            end = new Date(now);
+            end.setDate(now.getDate() + 1);
+            timeScale = { scale: 'day', step: 1 };
+            break;
+        default:
+            return;
+    }
+
+    timeline.setOptions({
+        start: start,
+        end: end,
+        timeAxis: timeScale,
+        min: start,
+        max: end,
+        zoomMin: 1000 * 60 * 60, // 最小ズームレベル（例：1時間）
+        moveable: true // タイムラインを動かせるようにする
+    });
+}
+
+// ボタン設定
+function setupTimeScaleButtons() {
+    const buttons = {
+        month: document.getElementById('monthView'),
+        week: document.getElementById('weekView'),
+        day: document.getElementById('dayView')
+    };
+
+    Object.entries(buttons).forEach(([scale, button]) => {
+        button.addEventListener('click', () => changeTimeScale(scale));
+    });
 }
 
 // 削除確認モーダルを表示する関数
@@ -291,47 +363,59 @@ function initialize() {
 // タイムライン上の右クリック
 function setupEventListeners() {
     // 追加ボタン
-    document.getElementById('addButton').addEventListener('click', () => {
-        const startDate = document.getElementById('scheduleDate').value;
-        const startTime = document.getElementById('startTime').value;
-        const endDate = document.getElementById('endDate').value;
-        const endTime = document.getElementById('endTime').value;
-        const title = document.getElementById('title').value;
-        const memo = document.getElementById('memo').value;
-        const layer = parseInt(document.getElementById('group').value, 10);
-        if (!startDate || !startTime || !endDate || !endTime || !title) {
-            alert('必須項目を入力してください');
-            return;
-        }
-        const startDateTime = new Date(`${startDate}T${startTime}`);
-        const endDateTime = new Date(`${endDate}T${endTime}`);
-        if (startDateTime >= endDateTime) {
-            alert('開始時刻は終了時刻より前に設定してください');
-            return;
-        }
-        const color = document.getElementById('color').value; // カラー入力値を取得
-
-        items.add({
-            id: Date.now(),
-            content: title,
-            start: startDateTime,
-            end: endDateTime,
-            title: memo,
-            group: layer,
-            style: `background-color: ${color};` // スタイルを追加
+    const addButton = document.getElementById('addButton');
+    if (addButton) {
+        addButton.addEventListener('click', function(event) {
+            const dateRange = document.getElementById('dateRange');
+            const startTime = document.getElementById('startTime');
+            const endTime = document.getElementById('endTime');
+            const title = document.getElementById('title');
+            const memo = document.getElementById('memo');
+            const errorDateTime = document.getElementById('error-date-time');
+            const errorTitle = document.getElementById('error-title');
+            const errorMemo = document.getElementById('error-memo');
+            let isValid = true;
+            if (dateRange.value.trim() === '' || startTime.value.trim() === '' || endTime.value.trim() === '') {
+                errorDateTime.style.display = 'block';
+                isValid = false;
+            } else {
+                errorDateTime.style.display = 'none';
+            }
+            if (title.value.trim() === '') {
+                errorTitle.style.display = 'block';
+                isValid = false;
+            } else {
+                errorTitle.style.display = 'none';
+            }
+            if (memo.value.trim() === '') {
+                errorMemo.style.display = 'block';
+                isValid = false;
+            } else {
+                errorMemo.style.display = 'none';
+            }
+            if (isValid) {
+                // フォームの送信処理をここに追加
+            }
         });
-        saveSchedule();
-        clearForm();
-        hideModal(); // スケジュール追加後にモーダルを閉じる
-    });
+    }
+
     // クリアボタン
-    document.getElementById('clearButton').addEventListener('click', clearForm);
+    const clearButton = document.getElementById('clearButton');
+    if (clearButton) {
+        clearButton.addEventListener('click', clearForm);
+    }
+
     // モーダルの閉じるボタン
-    document.getElementById('closeModalButton').addEventListener('click', hideModal);
+    const closeModalButton = document.getElementById('closeModalButton');
+    if (closeModalButton) {
+        closeModalButton.addEventListener('click', hideModal);
+    }
+
     // タイムラインのダブルクリックでモーダルを開く（必要に応じて）
     timeline.on('doubleClick', () => {
         showModal();
     });
+
     // タイムライン上の右クリック
     timeline.on('contextmenu', (props) => {
         props.event.preventDefault();
@@ -417,4 +501,16 @@ window.electron.receive('open_file', (data) => {
             style: item.style || `background-color: ${color};`
         });
     });
+});
+
+document.getElementById('addButton').addEventListener('click', function() {
+    const title = document.getElementById('title').value;
+    const memo = document.getElementById('memo').value;
+    const errorMessage = document.getElementById('error-message');
+
+    if (!title || !memo) {
+        errorMessage.style.display = 'block';
+    } else {
+        errorMessage.style.display = 'none';
+    }
 });

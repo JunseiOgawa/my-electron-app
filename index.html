@@ -217,13 +217,29 @@
             grid-row: 6;
         }
 
-    input[type="color"] {/* 高さを指定して正方形にする */
+    input[type="color"] {/* 高さを指定して正方形にする Z*/
         width: 40px;
         padding: 2px;
         height: 40px; 
         border: none;
         cursor: pointer;
     }   
+    .scale-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .scale-buttons button {
+        padding: 5px 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .scale-buttons button:hover {
+        background-color: #f0f0f0;
+    }
     </style>
 </head>
 <body>
@@ -231,6 +247,12 @@
         <div class="current-date" id="currentDate"></div>
         <div class="current-month" id="currentMonth"></div>
         
+        <div class="scale-buttons">
+            <button id="monthView">月</button>
+            <button id="weekView">週</button>
+            <button id="dayView">日</button>
+        </div>
+
         <div class="timeline-container">
             <div id="timeline"></div>
         </div>
@@ -278,6 +300,9 @@
             <button id="clearButton" class="clear-button">クリア</button>
         </div>
         <button id="closeModalButton">閉じる</button>
+        <div id="error-message" style="color: red; display: none; grid-column: 1 / span 2; grid-row: 7; text-align: center;">
+            必須事項を入力してください
+        </div>
     </div>
     <!-- 削除確認用モーダル -->
     <div id="delete-modal-overlay"></div>

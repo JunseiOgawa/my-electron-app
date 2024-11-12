@@ -5,7 +5,8 @@
     "start": "2024-11-01T01:09:00.000Z",
     "end": "2025-02-27T07:08:00.000Z",
     "title": "test開発期間オブジェクト",
-    "group": 1
+    "group": 1,
+    "style": "background-color: #4CAF50;"
   },
   {
     "id": 1731300758265,
