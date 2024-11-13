@@ -504,13 +504,47 @@ window.electron.receive('open_file', (data) => {
 });
 
 document.getElementById('addButton').addEventListener('click', function() {
+    // フォームの値を取得
+    const startDate = document.getElementById('scheduleDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const startTime = document.getElementById('startTime').value;
+    const endTime = document.getElementById('endTime').value;
     const title = document.getElementById('title').value;
     const memo = document.getElementById('memo').value;
-    const errorMessage = document.getElementById('error-message');
+    const group = parseInt(document.getElementById('group').value, 10);
+    const color = document.getElementById('color').value;
 
-    if (!title || !memo) {
-        errorMessage.style.display = 'block';
-    } else {
-        errorMessage.style.display = 'none';
+    // バリデーション
+    if (!startDate || !endDate || !startTime || !endTime || !title || !memo) {
+        document.getElementById('error-message').style.display = 'block';
+        return;
+    }
+
+    // 日付と時間を結合
+    const startDateTime = new Date(`${startDate}T${startTime}`);
+    const endDateTime = new Date(`${endDate}T${endTime}`);
+
+    // 開始時刻が終了時刻より前かチェック
+    if (startDateTime >= endDateTime) {
+        alert('開始時刻は終了時刻より前に設定してください');
+        return;
+    }
+
+    // スケジュールを追加
+    try {
+        items.add({
+            id: Date.now(),
+            content: title,
+            start: startDateTime,
+            end: endDateTime,
+            title: memo,
+            group: group,
+            style: `background-color: ${color};`
+        });
+        saveSchedule();
+        clearForm();
+        hideModal();
+    } catch (error) {
+        console.error('スケジュール追加エラー:', error);
     }
 });
