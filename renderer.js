@@ -166,6 +166,7 @@ function initContextMenu() {
         if (selectedItem) {
             setEditFormValues(selectedItem);
             showEditModal();
+            console.log(`Item selected for editing: ${selectedItem.id}`); // ログメッセージを修正
         }
     });
 
@@ -244,6 +245,12 @@ function setupModalClickHandlers() {
     // オーバーレイをクリックしたらモーダルを閉じる
     document.getElementById('modal-overlay').addEventListener('click', hideModal);
     document.getElementById('delete-modal-overlay').addEventListener('click', hideDeleteModal);
+    const editModal = document.getElementById('edit-modal');
+    editModal.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    // 編集モーダルのオーバーレイをクリックしたらモーダルを閉じる
+    document.getElementById('edit-modal-overlay').addEventListener('click', hideEditModal);
 }
 
 // 編集モーダルを表示
@@ -304,6 +311,8 @@ function setupEditModalListeners() {
     document.getElementById('closeEditModalButton').addEventListener('click', hideEditModal);
     document.getElementById('editClearButton').addEventListener('click', clearEditForm);
     
+    const errorMessage = document.getElementById('edit-error-message');
+
     document.getElementById('updateButton').addEventListener('click', () => {
         const startDate = document.getElementById('editScheduleDate').value;
         const startTime = document.getElementById('editStartTime').value;
@@ -315,15 +324,19 @@ function setupEditModalListeners() {
         const color = document.getElementById('editColor').value;
 
         if (!startDate || !startTime || !endDate || !endTime || !title) {
-            alert('必須項目を入力してください');
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = '必須事項を入力してください';
             return;
+        } else {
+            errorMessage.style.display = 'none';
         }
 
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
 
         if (startDateTime >= endDateTime) {
-            alert('開始時刻は終了時刻より前に設定してください');
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = '開始時刻は終了時刻より前に設定してください';
             return;
         }
 
@@ -422,8 +435,7 @@ function setupEventListeners() {
         const item = props.item; 
         
         if (item) {
-            selectedItem = items.get(item); // ここで selectedItem を設定
-            console.log(`Item selected for deletion: ${selectedItem.id}`); // ログを追加
+            selectedItem = items.get(item); // selectedItem を設定
             showContextMenu(props.event.pageX, props.event.pageY);
         } else {
             selectedItem = null;
@@ -485,7 +497,7 @@ window.electron.receive('open_file', (data) => {
         // スタイル文字列からカラー値を抽出
         let color = '#4CAF50'; // デフォルトカラー
         if (item.style) {
-            const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/);
+            const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/);//正規でカラーを取得
             if (match) {
                 color = match[1];
             }
