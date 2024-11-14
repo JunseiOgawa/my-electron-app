@@ -29,7 +29,8 @@ function initTimeline() {
     groups = new vis.DataSet([
         { id: 1, content: 'レイヤー 1' },
         { id: 2, content: 'レイヤー 2' },
-        { id: 3, content: 'レイヤー 3' }
+        { id: 3, content: 'レイヤー 3' },
+        { id: 4, content: 'レイヤー 4' }
     ]);
 
     // 初期設定は日表示
@@ -48,7 +49,9 @@ function initTimeline() {
                 date: '日付',
                 // 必要に応じて他の翻訳を追加
             }
-        }
+        },
+        zoomMin: 1000 * 60 * 15,  // 15分
+        zoomMax: 1000 * 60 * 60 * 24 * 7 * 4,  // ひと月
     };
 
     timeline = new vis.Timeline(container, items, groups, options);
@@ -113,8 +116,17 @@ function setupTimeScaleButtons() {
     };
 
     Object.entries(buttons).forEach(([scale, button]) => {
-        button.addEventListener('click', () => changeTimeScale(scale));
+        button.addEventListener('click', () => {
+            changeTimeScale(scale);
+            // すべてのボタンを有効化
+            Object.values(buttons).forEach(btn => btn.disabled = false);
+            // クリックされたボタンを無効化
+            button.disabled = true;
+        });
     });
+
+    // 初期状態で「日」ボタンを無効化
+    buttons.day.disabled = true;
 }
 
 // 削除確認モーダルを表示する関数
@@ -245,12 +257,6 @@ function setupModalClickHandlers() {
     // オーバーレイをクリックしたらモーダルを閉じる
     document.getElementById('modal-overlay').addEventListener('click', hideModal);
     document.getElementById('delete-modal-overlay').addEventListener('click', hideDeleteModal);
-    const editModal = document.getElementById('edit-modal');
-    editModal.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
-    // 編集モーダルのオーバーレイをクリックしたらモーダルを閉じる
-    document.getElementById('edit-modal-overlay').addEventListener('click', hideEditModal);
 }
 
 // 編集モーダルを表示
@@ -311,8 +317,6 @@ function setupEditModalListeners() {
     document.getElementById('closeEditModalButton').addEventListener('click', hideEditModal);
     document.getElementById('editClearButton').addEventListener('click', clearEditForm);
     
-    const errorMessage = document.getElementById('edit-error-message');
-
     document.getElementById('updateButton').addEventListener('click', () => {
         const startDate = document.getElementById('editScheduleDate').value;
         const startTime = document.getElementById('editStartTime').value;
@@ -324,19 +328,15 @@ function setupEditModalListeners() {
         const color = document.getElementById('editColor').value;
 
         if (!startDate || !startTime || !endDate || !endTime || !title) {
-            errorMessage.style.display = 'block';
-            errorMessage.textContent = '必須事項を入力してください';
+            alert('必須項目を入力してください');
             return;
-        } else {
-            errorMessage.style.display = 'none';
         }
 
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
 
         if (startDateTime >= endDateTime) {
-            errorMessage.style.display = 'block';
-            errorMessage.textContent = '開始時刻は終了時刻より前に設定してください';
+            alert('開始時刻は終了時刻より前に設定してください');
             return;
         }
 
@@ -358,13 +358,31 @@ function setupEditModalListeners() {
 
 // 初期化
 function initialize() {
-    updateDateTime();
     initTimeline();
     initContextMenu();
     setupEventListeners();
+    setupZoomSlider();
 
-    // 1分ごとに日付を更新
-    setInterval(updateDateTime, 60000);
+    // カレンダーの初期化
+    flatpickr("#calendar", {
+        locale: "ja",
+        defaultDate: new Date(), // 今日の日付を初期値に設定
+        onChange: function(selectedDates) {
+            if (selectedDates.length > 0) {
+                const selectedDate = selectedDates[0];
+                document.getElementById('scheduleDate').value = selectedDate.toISOString().split('T')[0];
+                // 必要に応じて他の処理を追加
+
+                // タイムラインを選択された日付に合わせて更新
+                const centerDate = new Date(selectedDate);
+                const start = new Date(centerDate);
+                start.setDate(centerDate.getDate() - 1);
+                const end = new Date(centerDate);
+                end.setDate(centerDate.getDate() + 1);
+                timeline.setWindow(start, end, { animation: false });
+            }
+        }
+    });
 
     // 今日の日付をデフォルト値として設定
     const today = new Date().toISOString().split('T')[0];
@@ -560,3 +578,42 @@ document.getElementById('addButton').addEventListener('click', function() {
         console.error('スケジュール追加エラー:', error);
     }
 });
+
+function setupZoomSlider() {
+    const slider = document.getElementById('zoomSlider');
+    
+    // 初期設定
+    slider.value = 50; // デフォルト値
+    
+    // スライダー変更時のイベント
+    slider.addEventListener('input', function(e) {
+        const value = parseInt(e.target.value);
+        const currentWindow = timeline.getWindow();
+        const center = new Date((currentWindow.start.getTime() + currentWindow.end.getTime()) / 2);
+        
+        // スライダー値を0-100から0.1-10の範囲にマッピング
+        const zoomLevel = 0.1 + (value / 10);
+        const range = 12 * 60 * 60 * 1000 / zoomLevel; // 基準範囲を調整
+        
+        const newStart = new Date(center.getTime() - range);
+        const newEnd = new Date(center.getTime() + range);
+        
+        timeline.setWindow(newStart, newEnd, {animation: false});
+    });
+
+    // タイムラインのズーム変更時にスライダーを更新
+    timeline.on('rangechange', function(properties) {
+        if (!properties.byUser) return; // ユーザーの操作以外は無視
+        
+        const duration = properties.end - properties.start;
+        const baseRange = 12 * 60 * 60 * 1000; // 12時間を基準
+        const zoomLevel = baseRange / duration;
+        let newValue = Math.log2(zoomLevel) * 10 + 50;
+        
+        // スライダーの値を0-100に制限
+        newValue = Math.min(Math.max(newValue, 0), 100);
+        
+        // スライダーの値を更新
+        slider.value = newValue;
+    });
+}

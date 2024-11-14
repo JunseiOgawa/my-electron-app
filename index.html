@@ -41,6 +41,10 @@
             border: 1px solid #ddd;
             border-radius: 8px;
         }
+        .zoom-slider{
+            grid-column: 3;
+            grid-row: 3;
+        }
         .timeline {
             height: 100%;
             width: 100%;
@@ -340,8 +344,9 @@
 </head>
 <body>
     <div class="container">
-        <div class="current-date" id="currentDate"></div>
-        <div class="current-month" id="currentMonth"></div>
+        <!-- <div class="current-date" id="currentDate"></div>
+        <div class="current-month" id="currentMonth"></div> -->
+        <input type="text" id="calendar" placeholder="日付を選択">
         
         <div class="scale-buttons">
             <button id="monthView">月</button>
@@ -351,6 +356,9 @@
 
         <div class="timeline-container">
             <div id="timeline"></div>
+        </div>
+        <div class="zoom-slider">
+            <input type="range" id="zoomSlider" min="1" max="100" value="50">
         </div>
     </div> <!-- div.containerの閉じタグ -->
 
@@ -399,7 +407,7 @@
         </div>
         <button id="closeModalButton">閉じる</button>
         <div id="error-message" style="color: red; display: none; grid-column: 1 / span 2; grid-row: 7; text-align: center;">
-            必��事項を入力してください
+            必須事項を入力してください
         </div>
     </div>
     <!-- 削除確認用モーダル -->
