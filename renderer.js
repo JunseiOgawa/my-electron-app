@@ -60,50 +60,109 @@ function initTimeline() {
 
 // vis.js の表示範囲を制限するために changeTimeScale 関数を修正
 function changeTimeScale(scale) {
-    const now = new Date();
-    let start, end, timeScale;
+    const calendarInput = document.getElementById('calendar');
+    let selectedDate;
 
-    switch(scale) {
-        case 'month':
-            // 月表示のロジック
-            const currentMonth = now.getMonth();
-            const currentYear = now.getFullYear();
-            start = new Date(currentYear, currentMonth - 1, 28);
-            end = new Date(currentYear, currentMonth + 1, 3);
-            timeScale = { scale: 'day', step: 1 };
-            break;
-        case 'week':
-            // 現在の週の開始日（例：月曜日）を計算
-            const dayOfWeek = now.getDay(); // 0=日曜日, 1=月曜日, ...,6=土曜日
-            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-            const weekStart = new Date(now);
-            weekStart.setDate(now.getDate() + diffToMonday);
-            weekStart.setHours(0, 0, 0, 0);
-            start = weekStart;
-            end = new Date(weekStart);
-            end.setDate(end.getDate() + 6);
-            timeScale = { scale: 'day', step: 1 };
-            break;
-        case 'day':
-            // 前後1日を含む3日間表示
-            start = new Date(now);
-            start.setDate(now.getDate() - 1);
-            end = new Date(now);
-            end.setDate(now.getDate() + 1);
-            timeScale = { scale: 'day', step: 1 };
-            break;
-        default:
-            return;
+    // 日付のバリデーション処理を追加
+    try {
+        if (scale === 'week' && calendarInput.value) {
+            const [year, week] = calendarInput.value.split('-W').map(Number);
+            if (!isNaN(year) && !isNaN(week)) {
+                selectedDate = getDateOfISOWeek(year, week);
+            }
+        } else if (calendarInput.value) {
+            const tempDate = new Date(calendarInput.value);
+            if (!isNaN(tempDate.getTime())) {
+                selectedDate = tempDate;
+            }
+        }
+        
+        // selectedDateが無効な場合は現在日時を使用
+        if (!selectedDate || isNaN(selectedDate.getTime())) {
+            selectedDate = new Date();
+        }
+    } catch (error) {
+        console.error('Date conversion error:', error);
+        selectedDate = new Date();
     }
 
-    timeline.setOptions({
-        start: start,
-        end: end,
-        timeAxis: timeScale,
-        min: start,
-        max: end,
-        zoomMin: 1000 * 60 * 60, // 最小ズームレベル（例：1時間）
-        moveable: true // タイムラインを動かせるようにする
+    let start, end, timeScale;
+    
+    switch(scale) {
+        case 'month':
+            const currentMonth = selectedDate.getMonth();
+            const currentYear = selectedDate.getFullYear();
+            start = new Date(currentYear, currentMonth, 1);
+            end = new Date(currentYear, currentMonth + 1, 0);
+            timeScale = { scale: 'day', step: 1 };
+            break;
+            
+        case 'week':
+            // 週の開始日（月曜日）を計算
+            const dayOfWeek = selectedDate.getDay();
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // 月曜日に調整
+            start = new Date(selectedDate);
+            start.setDate(selectedDate.getDate() + diff);
+            start.setHours(0, 0, 0, 0);
+            
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            end.setHours(23, 59, 59, 999);
+            
+            timeScale = { scale: 'day', step: 1 };
+            break;
+            
+        case 'day':
+            start = new Date(selectedDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(selectedDate);
+            end.setHours(23, 59, 59, 999);
+            timeScale = { scale: 'hour', step: 1 };
+            break;
+    }
+
+    // 範囲設定前に値のバリデーション
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        timeline.setOptions({
+            start: start,
+            end: end,
+            timeAxis: timeScale
+        });
+    } else {
+        console.error('Invalid date range:', { start, end });
+    }
+}
+
+// ISO週番号から日付を取得する補助関数
+function getDateOfISOWeek(year, week) {
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dayOfWeek = simple.getDay();
+    const ISOweekStart = simple;
+    
+    if (dayOfWeek <= 4) {
+        ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+    } else {
+        ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+    }
+    
+    return ISOweekStart;
+}
+
+function setupCalendarChangeListener(scale) {
+    const calendarInput = document.getElementById('calendar');
+    
+    // 既存のイベントリスナーを削除（重要）
+    const clone = calendarInput.cloneNode(true);
+    calendarInput.parentNode.replaceChild(clone, calendarInput);
+    
+    clone.addEventListener('change', (event) => {
+        const value = event.target.value;
+        console.log('Calendar changed:', value, scale); // デバッグ用
+        
+        if (!value) return;
+        
+        // 選択された日付に基づいてタイムラインを更新
+        changeTimeScale(scale);
     });
 }
 
@@ -118,6 +177,8 @@ function setupTimeScaleButtons() {
     Object.entries(buttons).forEach(([scale, button]) => {
         button.addEventListener('click', () => {
             changeTimeScale(scale);
+            // カレンダーの表示形式を更新
+            updateCalendarInputType(scale);
             // すべてのボタンを有効化
             Object.values(buttons).forEach(btn => btn.disabled = false);
             // クリックされたボタンを無効化
@@ -127,6 +188,42 @@ function setupTimeScaleButtons() {
 
     // 初期状態で「日」ボタンを無効化
     buttons.day.disabled = true;
+}
+
+function updateCalendarInputType(scale) {
+    const calendarContainer = document.getElementById('calendar-container');
+    if (!calendarContainer) {
+        console.error('calendar-container 要素が見つかりません');
+        return;
+    }
+
+    let newInput;
+    switch(scale) {
+        case 'month':
+            // 月選択用の入力に変更
+            newInput = document.createElement('input');
+            newInput.type = 'month';
+            newInput.id = 'calendar';
+            break;
+        case 'week':
+            // 週選択用の入力に変更（ブラウザによっては未対応の場合があります）
+            newInput = document.createElement('input');
+            newInput.type = 'week';
+            newInput.id = 'calendar';
+            break;
+        case 'day':
+            // 日付選択用の入力に変更
+            newInput = document.createElement('input');
+            newInput.type = 'date';
+            newInput.id = 'calendar';
+            break;
+    }
+    // 古い入力を置き換え
+    calendarContainer.innerHTML = '';
+    calendarContainer.appendChild(newInput);
+
+    // カレンダー変更時のイベントリスナーを再設定
+    setupCalendarChangeListener(scale);
 }
 
 // 削除確認モーダルを表示する関数
@@ -148,18 +245,18 @@ function setupDeleteModalListeners() {
 
     confirmDeleteButton.addEventListener('click', () => {
         if (selectedItem) {
-            console.log(`Deleting item with ID: ${selectedItem.id}`);
+            console.log(`Deleting item with ID: ${selectedItem.id}`);//デバッグ用
             items.remove(selectedItem.id);
             saveSchedule(); // スケジュールを保存
             selectedItem = null; // 削除が完了したら selectedItem をクリア
         } else {
-            console.log('No item selected for deletion.');
+            console.log('No item selected for deletion.');//デバッグ用   
         }
         hideDeleteModal();
     });
 
     cancelDeleteButton.addEventListener('click', () => {
-        selectedItem = null; // キャンセル時にも selectedItem をクリア
+        selectedItem = null; 
         hideDeleteModal();
     });
 }
@@ -178,7 +275,7 @@ function initContextMenu() {
         if (selectedItem) {
             setEditFormValues(selectedItem);
             showEditModal();
-            console.log(`Item selected for editing: ${selectedItem.id}`); // ログメッセージを修正
+            console.log(`Item selected for editing: ${selectedItem.id}`); // デバッグ用
         }
     });
 
@@ -362,36 +459,18 @@ function initialize() {
     initContextMenu();
     setupEventListeners();
     setupZoomSlider();
+    setupTimeScaleButtons();
 
-    // カレンダーの初期化
-    flatpickr("#calendar", {
-        locale: "ja",
-        defaultDate: new Date(), // 今日の日付を初期値に設定
-        onChange: function(selectedDates) {
-            if (selectedDates.length > 0) {
-                const selectedDate = selectedDates[0];
-                document.getElementById('scheduleDate').value = selectedDate.toISOString().split('T')[0];
-                // 必要に応じて他の処理を追加
+    // タイムスケールに応じたカレンダー入力を設定
+    setupCalendarChangeListener('day');
 
-                // タイムラインを選択された日付に合わせて更新
-                const centerDate = new Date(selectedDate);
-                const start = new Date(centerDate);
-                start.setDate(centerDate.getDate() - 1);
-                const end = new Date(centerDate);
-                end.setDate(centerDate.getDate() + 1);
-                timeline.setWindow(start, end, { animation: false });
-            }
-        }
-    });
-
-    // 今日の日付をデフォルト値として設定
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('scheduleDate').value = today;
+    // 初期ロード時に「日」ボタンを無効化
+    document.getElementById('dayView').disabled = true;
 
     hideModal(); // 初期化時にモーダルを非表示にする
 }
 
-// タイムライン上の右クリック
+// タイムライン上の右クリックイベント
 function setupEventListeners() {
     // 追加ボタン
     const addButton = document.getElementById('addButton');
@@ -601,7 +680,7 @@ function setupZoomSlider() {
         timeline.setWindow(newStart, newEnd, {animation: false});
     });
 
-    // タイムラインのズーム変更時にスライダーを更新
+    // タイムラインのズーム変更時にスライダー更新
     timeline.on('rangechange', function(properties) {
         if (!properties.byUser) return; // ユーザーの操作以外は無視
         
