@@ -193,7 +193,7 @@ function setupTimeScaleButtons() {
 function updateCalendarInputType(scale) {
     const calendarContainer = document.getElementById('calendar-container');
     if (!calendarContainer) {
-        console.error('calendar-container 要素が見つかりません');
+        console.error('calendar-container 要素が見つかりませ��');
         return;
     }
 
@@ -279,7 +279,7 @@ function initContextMenu() {
         }
     });
 
-    // クリックでコンテキストメニューを非表示
+    // クリック����ンテキストメニューを非表示
     document.addEventListener('click', (e) => {
         if (!contextMenu.contains(e.target)) {
             hideContextMenu();
@@ -545,6 +545,27 @@ function setupEventListeners() {
     setupModalClickHandlers();
     // 編集モーダルのイベントリスナーを設定
     setupEditModalListeners();
+    
+    // タイムラインにダブルクリックイベントを追加
+    timeline.on('doubleClick', function (properties) {
+        if (properties.what === 'background') {
+            const canvasPosition = properties.event.canvas;
+            const item = items.get(properties.item);
+            const groupId = properties.group; // グループIDを取得
+
+            // グループIDが存在する場合、その番号を取得
+            let layerNumber = 1; // デフォルト値
+            if (groupId !== null && groupId !== undefined) {
+                layerNumber = groupId;
+            }
+
+            // レイヤー番号をフォームにセット
+            document.getElementById('group').value = layerNumber;
+
+            // モーダルを表示
+            showModal();
+        }
+    });
 }
 
 //DOMの読み込みが完了したら初期化
