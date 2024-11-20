@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
+let settingsWindow = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -56,6 +57,26 @@ function createWindow() {
     createMenu(); // ウィンドウ作成時にメニューを作成
 }
 
+function createSettingsWindow() {
+    settingsWindow = new BrowserWindow({
+        width: 600,
+        height: 500,
+        title: '設定',
+        autoHideMenuBar: true,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true
+        }
+        
+    } );
+
+    settingsWindow.loadFile('settings.html');
+
+    settingsWindow.on('closed', () => {
+        settingsWindow = null;
+    });
+}
+
 function createMenu() {
     const template = [
         {
@@ -75,7 +96,7 @@ function createMenu() {
                     click: () => { openFile() } // 実行される関数
                 },
                 {
-                    label: 'Save',
+                    label: 'Save', // ラベルを追加
                     accelerator: 'CmdOrCtrl+S', // ショートカットキーを設定
                     click: () => { saveSchedule() } // 実行される関数
                 },
@@ -83,6 +104,7 @@ function createMenu() {
                     label: 'Exit',
                     click: () => { app.quit() } // アプリを終了
                 }
+                
             ]
         }
     ];
@@ -155,7 +177,7 @@ app.on('activate', () => {
     }
 });
 
-// スケジュールデータを保存するIPCイベント
+// スケジュールデー���を保存するIPCイベント
 ipcMain.on('save_schedule', (event, data) => {
     console.log('Received schedule data to save:', data);
     const saveDir = path.join(__dirname, 'save');
@@ -173,4 +195,11 @@ ipcMain.on('save_schedule', (event, data) => {
             console.log(`スケジュールが保存されました: ${schedulePath}`);
         }
     });
+});
+
+// IPC通信を追加
+ipcMain.on('open-settings', () => {
+    if (!settingsWindow) {
+        createSettingsWindow();
+    }
 });

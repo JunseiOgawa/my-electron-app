@@ -541,6 +541,29 @@ function setupEditModalListeners() {
     document.getElementById('editClearButton').addEventListener('click', clearEditForm);
     
     document.getElementById('updateButton').addEventListener('click', () => {
+        // デバッグ用のログ追加
+        console.log('編集前の値:', {
+            selectedItem: selectedItem,
+            currentStartDate: document.getElementById('editScheduleDate').value,
+            currentStartTime: document.getElementById('editStartTime').value,
+            currentEndDate: document.getElementById('editEndDate').value,
+            currentEndTime: document.getElementById('editEndTime').value,
+            currentTitle: document.getElementById('editTitle').value,
+            currentMemo: document.getElementById('editMemo').value,
+            currentLayer: document.getElementById('editGroup').value,
+            currentColor: document.getElementById('editColor').value,
+            flatpickrDates: document.getElementById('editDateRange')._flatpickr.selectedDates
+        });
+
+        // flatpickrの選択された日付を取得
+        const selectedDates = document.getElementById('editDateRange')._flatpickr.selectedDates;
+        if (selectedDates.length === 2) {
+            const startDate = selectedDates[0].toISOString().split('T')[0];
+            const endDate = selectedDates[1].toISOString().split('T')[0];
+            document.getElementById('editScheduleDate').value = startDate;
+            document.getElementById('editEndDate').value = endDate;
+        }
+
         const startDate = document.getElementById('editScheduleDate').value;
         const startTime = document.getElementById('editStartTime').value;
         const endDate = document.getElementById('editEndDate').value;
@@ -550,17 +573,130 @@ function setupEditModalListeners() {
         const layer = parseInt(document.getElementById('editGroup').value, 10);
         const color = document.getElementById('editColor').value;
 
-        if (!startDate || !startTime || !endDate || !endTime || !title) {
-            alert('必須項目を入力してください');
+        // デバッグ用のログ追加
+        console.log('バリデーション前の値:', {
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            title,
+            memo,
+            layer,
+            color
+        });
+
+        // 元の値と比較して変更があるかチェック
+        const hasChanges = 
+            startTime !== selectedItem.start.toTimeString().slice(0,5) ||
+            endTime !== selectedItem.end.toTimeString().slice(0,5) ||
+            title !== selectedItem.content ||
+            memo !== selectedItem.title ||
+            layer !== selectedItem.group ||
+            color !== selectedItem.style.match(/background-color: (#[0-9a-fA-F]{6});/)[1];
+
+        // 変更がない場合はモーダルを閉じて終了
+        if (!hasChanges) {
+            hideEditModal();
             return;
+        }
+
+        let isValid = true;
+
+        // 必須事項のバリデーション
+        if (!startDate) {
+            const errorDateTime = document.getElementById('edit-error-date-time');
+            if (errorDateTime) {
+                errorDateTime.style.display = 'block';
+            }
+            isValid = false;
+        } else {
+            const errorDateTime = document.getElementById('edit-error-date-time');
+            if (errorDateTime) {
+                errorDateTime.style.display = 'none';
+            }
+        }
+
+        if (!startTime) {
+            const errorStartTime = document.getElementById('edit-error-start-time');
+            if (errorStartTime) {
+                errorStartTime.style.display = 'block';
+            }
+            isValid = false;
+        } else {
+            const errorStartTime = document.getElementById('edit-error-start-time');
+            if (errorStartTime) {
+                errorStartTime.style.display = 'none';
+            }
+        }
+
+        if (!endTime) {
+            const errorEndTime = document.getElementById('edit-error-end-time');
+            if (errorEndTime) {
+                errorEndTime.style.display = 'block';
+            }
+            isValid = false;
+        } else {
+            const errorEndTime = document.getElementById('edit-error-end-time');
+            if (errorEndTime) {
+                errorEndTime.style.display = 'none';
+            }
+        }
+
+        if (!title) {
+            const errorTitle = document.getElementById('edit-error-title');
+            if (errorTitle) {
+                errorTitle.style.display = 'block';
+            }
+            isValid = false;
+        } else {
+            const errorTitle = document.getElementById('edit-error-title');
+            if (errorTitle) {
+                errorTitle.style.display = 'none';
+            }
+        }
+
+        if (!memo) {
+            const errorMemo = document.getElementById('edit-error-memo');
+            if (errorMemo) {
+                errorMemo.style.display = 'block';
+            }
+            isValid = false;
+        } else {
+            const errorMemo = document.getElementById('edit-error-memo');
+            if (errorMemo) {
+                errorMemo.style.display = 'none';
+            }
+        }
+
+        if (!isValid) {
+            const errorMessage = document.getElementById('edit-error-message');
+            if (errorMessage) {
+                errorMessage.textContent = '必須事項を入力してください';
+                errorMessage.style.display = 'block';
+            }
+            return;
+        } else {
+            const errorMessage = document.getElementById('edit-error-message');
+            if (errorMessage) {
+                errorMessage.style.display = 'none';
+            }
         }
 
         const startDateTime = new Date(`${startDate}T${startTime}`);
         const endDateTime = new Date(`${endDate}T${endTime}`);
 
         if (startDateTime >= endDateTime) {
-            alert('開始時刻は終了時刻より前に設定してください');
+            const errorMessage = document.getElementById('edit-error-message');
+            if (errorMessage) {
+                errorMessage.textContent = '開始時刻は終了時刻より前に設定してください';
+                errorMessage.style.display = 'block';
+            }
             return;
+        } else {
+            const errorMessage = document.getElementById('edit-error-message');
+            if (errorMessage) {
+                errorMessage.style.display = 'none';
+            }
         }
 
         items.update({
@@ -659,6 +795,14 @@ function setupEventListeners() {
             selectedItem = null;
         }
     });
+
+    // 設定ボタンのイベントリスナーを追加
+    const settingsButton = document.getElementById('settingsButton');
+    if (settingsButton) {
+        settingsButton.addEventListener('click', () => {
+            window.electron.send('open-settings');
+        });
+    }
 
     // 削除確認モーダルのイベントリスナーを設定
     setupDeleteModalListeners();
@@ -765,7 +909,7 @@ document.getElementById('addButton').addEventListener('click', function() {
     const color = document.getElementById('color').value;
 
     // デバッグ用
-    console.log('入力データ:', {
+    console.log('モーダル日付追加時用入力データ:', {
         startDate,
         endDate,
         startTime,
