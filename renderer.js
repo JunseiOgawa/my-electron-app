@@ -71,12 +71,9 @@ function changeTimeScale(scale) {
                 selectedDate = getDateOfISOWeek(year, week);
             }
         } else if (calendarInput.value) {
-            const tempDate = new Date(calendarInput.value);
-            if (!isNaN(tempDate.getTime())) {
-                selectedDate = tempDate;
-            }
+            selectedDate = new Date(calendarInput.value);
         }
-        
+
         // selectedDateが無効な場合は現在日時を使用
         if (!selectedDate || isNaN(selectedDate.getTime())) {
             selectedDate = new Date();
@@ -87,14 +84,39 @@ function changeTimeScale(scale) {
     }
 
     let start, end, timeScale;
-    
+
     switch(scale) {
         case 'month':
             const currentMonth = selectedDate.getMonth();
             const currentYear = selectedDate.getFullYear();
             start = new Date(currentYear, currentMonth, 1);
             end = new Date(currentYear, currentMonth + 1, 0);
-            timeScale = { scale: 'day', step: 1 };
+            timeScale = { scale: 'month', step: 1 };
+            
+            // 月モード用のflatpickr設定
+            flatpickr("#calendar", {
+                inline: true,
+                mode: "single",
+                dateFormat: "Y-m",
+                locale: "ja",
+                plugins: [new monthSelectPlugin({
+                    shorthand: true,
+                    dateFormat: "Y-m",
+                    altFormat: "F Y"
+                })],
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        changeTimeScale('month');
+                    }
+                }
+            });
+
+            timeline.setOptions({
+                timeAxis: timeScale,
+                start: start,
+                end: end
+                // pluginsは月モードのみ適用
+            });
             break;
             
         case 'week':
@@ -110,6 +132,61 @@ function changeTimeScale(scale) {
             end.setHours(23, 59, 59, 999);
             
             timeScale = { scale: 'day', step: 1 };
+            
+            // 週モード用のflatpickr設定
+            flatpickr("#calendar", {
+                inline: true,
+                mode: "single",
+                dateFormat: "Y-W", // 週番号を表示
+                locale: "ja",
+                plugins: [new weekSelect({})],
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        changeTimeScale('week');
+                    }
+                },
+                // 選択範囲を週単位にスナップ
+                onClose: function(selectedDates) {
+                    if (selectedDates.length === 1) {
+                        const selected = selectedDates[0];
+                        const dayOfWeek = selected.getDay();
+                        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                        const weekStart = new Date(selected);
+                        weekStart.setDate(selected.getDate() + diff);
+                        weekStart.setHours(0, 0, 0, 0);
+                        
+                        const weekEnd = new Date(weekStart);
+                        weekEnd.setDate(weekStart.getDate() + 6);
+                        weekEnd.setHours(23, 59, 59, 999);
+                        
+                        // 更新された週範囲を設定
+                        timeline.setWindow(weekStart, weekEnd, {animation: false});
+                    }
+                },
+                // 週を強調表示するための設定を追加
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    const selectedDate = fp.selectedDates[0];
+                    if (selectedDate) {
+                        const startOfWeek = new Date(selectedDate);
+                        const dayOfWeek = startOfWeek.getDay();
+                        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                        startOfWeek.setDate(startOfWeek.getDate() + diff);
+                        const endOfWeek = new Date(startOfWeek);
+                        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+                        const date = dayElem.dateObj;
+                        if (date >= startOfWeek && date <= endOfWeek) {
+                            dayElem.classList.add('selected-week');
+                        }
+                    }
+                }
+            });
+
+            timeline.setOptions({
+                timeAxis: timeScale,
+                start: start,
+                end: end
+            });
             break;
             
         case 'day':
@@ -118,16 +195,34 @@ function changeTimeScale(scale) {
             end = new Date(selectedDate);
             end.setHours(23, 59, 59, 999);
             timeScale = { scale: 'hour', step: 1 };
-            break;
-    }
 
+            // 日モード用のflatpickr設定
+            flatpickr("#calendar", {
+                inline: true,
+                mode: "single",
+                dateFormat: "Y-m-d",
+                locale: "ja",
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        changeTimeScale('day');
+                    }
+                }
+            });
+            
+            timeline.setOptions({
+                timeAxis: timeScale,
+                start: start,
+                end: end
+            });
+            break;
+
+        default:
+            console.error('未知のスケール:', scale);
+    }
+    
     // 範囲設定前に値のバリデーション
     if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        timeline.setOptions({
-            start: start,
-            end: end,
-            timeAxis: timeScale
-        });
+        timeline.setWindow(start, end, {animation: false});
     } else {
         console.error('Invalid date range:', { start, end });
     }
@@ -176,13 +271,14 @@ function setupTimeScaleButtons() {
 
     Object.entries(buttons).forEach(([scale, button]) => {
         button.addEventListener('click', () => {
-            changeTimeScale(scale);
-            // カレンダーの表示形式を更新
-            updateCalendarInputType(scale);
-            // すべてのボタンを有効化
+            // 他のボタンを有効化し、クリックされたボタンを無効化
             Object.values(buttons).forEach(btn => btn.disabled = false);
-            // クリックされたボタンを無効化
             button.disabled = true;
+
+            // カレンダーを再初期化
+            initializeCalendar(scale);
+            // タイムラインのスケールを変更
+            changeTimeScale(scale);
         });
     });
 
@@ -191,36 +287,66 @@ function setupTimeScaleButtons() {
 }
 
 function updateCalendarInputType(scale) {
-    const calendarContainer = document.getElementById('calendar-container');
-    if (!calendarContainer) {
-        console.error('calendar-container 要素が見つかりませ��');
+    const calendarInputContainer = document.getElementById('calendar-input-container');
+    
+    if (!calendarInputContainer) {
+        console.error('calendar-input-container 要素が見つかりません');
         return;
     }
 
-    let newInput;
+    let newInput = document.createElement('input');
+    newInput.type = "text";
+    newInput.id = "calendar";
+
+    // 古い入力を置き換え
+    calendarInputContainer.innerHTML = '';
+    calendarInputContainer.appendChild(newInput);
+
+    // フラットピッカーの設定
     switch(scale) {
         case 'month':
-            // 月選択用の入力に変更
-            newInput = document.createElement('input');
-            newInput.type = 'month';
-            newInput.id = 'calendar';
+            flatpickr(newInput, {
+                inline: true,
+                mode: "single",
+                dateFormat: "Y-m",
+                plugins: [new monthSelectPlugin({
+                    shorthand: true,
+                    dateFormat: "Y-m",
+                    altFormat: "F Y",
+                })],
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        changeTimeScale('month');
+                    }
+                }
+            });
             break;
         case 'week':
-            // 週選択用の入力に変更（ブラウザによっては未対応の場合があります）
-            newInput = document.createElement('input');
-            newInput.type = 'week';
-            newInput.id = 'calendar';
+            flatpickr(newInput, {
+                inline: true,
+                mode: "range",
+                weekNumbers: true,
+                dateFormat: "Y-m-d",
+                onChange: function(selectedDates) {
+                    if (selectedDates.length >= 2) {
+                        changeTimeScale('week');
+                    }
+                }
+            });
             break;
         case 'day':
-            // 日付選択用の入力に変更
-            newInput = document.createElement('input');
-            newInput.type = 'date';
-            newInput.id = 'calendar';
+            flatpickr(newInput, {
+                inline: true,
+                mode: "single",
+                dateFormat: "Y-m-d",
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        changeTimeScale('day');
+                    }
+                }
+            });
             break;
     }
-    // 古い入力を置き換え
-    calendarContainer.innerHTML = '';
-    calendarContainer.appendChild(newInput);
 
     // カレンダー変更時のイベントリスナーを再設定
     setupCalendarChangeListener(scale);
@@ -279,7 +405,7 @@ function initContextMenu() {
         }
     });
 
-    // クリック����ンテキストメニューを非表示
+    // クリックでコンテキストメニューを非表示
     document.addEventListener('click', (e) => {
         if (!contextMenu.contains(e.target)) {
             hideContextMenu();
@@ -461,13 +587,8 @@ function initialize() {
     setupZoomSlider();
     setupTimeScaleButtons();
 
-    // タイムスケールに応じたカレンダー入力を設定
-    setupCalendarChangeListener('day');
-
-    // 初期ロード時に「日」ボタンを無効化
-    document.getElementById('dayView').disabled = true;
-
-    hideModal(); // 初期化時にモーダルを非表示にする
+    // 初期スケールを 'day' に設定してカレンダーを初期化
+    initializeCalendar('day');
 }
 
 // タイムライン上の右クリックイベント
@@ -571,34 +692,33 @@ function setupEventListeners() {
 //DOMの読み込みが完了したら初期化
 document.addEventListener('DOMContentLoaded', function() {
     initialize();
+    initializeCalendar('day');
+    hideModal();    
 
-    // flatpickrの初期化
+    // dateRange フィールドの flatpickr 初期化
     flatpickr("#dateRange", {
         mode: "range",
         dateFormat: "Y-m-d",
         locale: "ja",
         onChange: function(selectedDates) {
             if (selectedDates.length === 2) {
-                const startDate = selectedDates[0];
-                const endDate = selectedDates[1];
-                document.getElementById('scheduleDate').value = startDate.toISOString().split('T')[0];
-                document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+                const [start, end] = selectedDates;
+                document.getElementById('scheduleDate').value = start.toISOString().split('T')[0];
+                document.getElementById('endDate').value = end.toISOString().split('T')[0];
+            } else {
+                document.getElementById('scheduleDate').value = '';
+                document.getElementById('endDate').value = '';
             }
         }
     });
 
-    // DOMContentLoadedイベントリスナーに追加
+    // editDateRange フィールドの flatpickr 初期化を追加
     flatpickr("#editDateRange", {
         mode: "range",
         dateFormat: "Y-m-d",
         locale: "ja",
         onChange: function(selectedDates) {
-            if (selectedDates.length === 2) {
-                const startDate = selectedDates[0];
-                const endDate = selectedDates[1];
-                document.getElementById('editScheduleDate').value = startDate.toISOString().split('T')[0];
-                document.getElementById('editEndDate').value = endDate.toISOString().split('T')[0];
-            }
+            // 編集用の選択された日付範囲を処理するコードを追加
         }
     });
 });
@@ -644,13 +764,25 @@ document.getElementById('addButton').addEventListener('click', function() {
     const group = parseInt(document.getElementById('group').value, 10);
     const color = document.getElementById('color').value;
 
+    // デバッグ用
+    console.log('入力データ:', {
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        title,
+        memo,
+        group,
+        color
+    });
+
     // バリデーション
-    if (!startDate || !endDate || !startTime || !endTime || !title || !memo) {
+    if (!startDate || !endDate || !startTime || !endTime || !title||!group) {
         document.getElementById('error-message').style.display = 'block';
         return;
     }
 
-    // 日付と時間を結合
+    // 日付と時間
     const startDateTime = new Date(`${startDate}T${startTime}`);
     const endDateTime = new Date(`${endDate}T${endTime}`);
 
@@ -713,7 +845,60 @@ function setupZoomSlider() {
         // スライダーの値を0-100に制限
         newValue = Math.min(Math.max(newValue, 0), 100);
         
+        
         // スライダーの値を更新
         slider.value = newValue;
     });
 }
+
+// カレンダーの初期化を一元化
+function initializeCalendar(scale) {
+    // 既存のflatpickrインスタンスを破棄して再初期化
+    if (calendarInstance) {
+        calendarInstance.destroy();
+        calendarInstance = null;
+        // カレンダー入力欄をクリア
+        document.getElementById('calendar-input-container').innerHTML = '<input type="text" id="calendar">';
+    }
+
+    let calendarOptions = {
+        inline: true,
+        locale: "ja",
+        dateFormat: "Y-m-d",
+        onChange: function(selectedDates) {
+            if (selectedDates.length > 0) {
+                // 選択された日付に基づいてタイムラインを更新
+                changeTimeScale(scale);
+            }
+        },
+    };
+
+    switch(scale) {
+        case 'month':
+            calendarOptions.plugins = [new monthSelectPlugin({
+                shorthand: true,
+                dateFormat: "Y-m",
+                altFormat: "F Y",
+                theme: "light"
+            })];
+            calendarOptions.dateFormat = "Y-m";
+            break;
+
+        case 'week':
+            // 週モードの設定（必要に応じて追加）
+            break;
+
+        case 'day':
+            // 日モードの設定（必要に応じて��加）
+            break;
+
+        default:
+            console.error('未知のスケール:', scale);
+    }
+
+    // 新しいflatpickrインスタンスを作成
+    calendarInstance = flatpickr("#calendar", calendarOptions);
+}
+
+// グローバル変数としてflatpickrのインスタンスを保持
+let calendarInstance = null;

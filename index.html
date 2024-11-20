@@ -5,9 +5,12 @@
     <title>タイムラインでスケジュール管理ソフト</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/flatpickr.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/flatpickr.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.9/l10n/ja.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/plugins/monthSelect/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/ja.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/plugins/monthSelect/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/weekSelect/weekSelect.js"></script>
     <style>
         body {
             margin: 0;
@@ -16,7 +19,7 @@
         }
         .container {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr; /* 横3列 */
+            grid-template-columns: auto 1fr 1fr; /* 横3列 */
             grid-template-rows: auto 1fr 1fr 1fr; /* 縦4行 */
             gap: 15px;
             height: 100vh;
@@ -113,7 +116,7 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
             display: none;
-            z-index: 1000;
+            z-index: 1006;
         }
         /* 削除確認モーダルのスタイル */
         #delete-modal {
@@ -127,7 +130,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 1001;
+            z-index: 1006;
         }
         #delete-modal-overlay {
             position: fixed;
@@ -137,7 +140,7 @@
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
             display: none;
-            z-index: 1000;
+            z-index: 1006;
         }
         /* モーダルのスタイル */
         #modal {
@@ -153,7 +156,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             width: 400px;
-            z-index: 1001;
+            z-index: 1006;
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: repeat(6, auto);
@@ -219,7 +222,10 @@
         cursor: pointer;
     }   
     .scale-buttons {
+        grid-column: 1;
+        grid-row: 3;
         display: flex;
+        justify-content: center;
         gap: 10px;
         margin-bottom: 10px;
     }
@@ -229,19 +235,21 @@
         border: 1px solid #ddd;
         border-radius: 4px;
         cursor: pointer;
+        text-align: center;
     }
 
     .scale-buttons button:hover {
         background-color: #f0f0f0;
     }
+    
 
     /* 編集モーダルのz-indexを追加 */
     #edit-modal-overlay {
-        z-index: 1002;
+        z-index: 1006;
     }
 
     #edit-modal {
-        z-index: 1003;
+        z-index: 1006;
         display: grid;
         grid-template-columns: 1fr 1fr;
         grid-template-rows: repeat(6, auto);
@@ -298,21 +306,20 @@
         grid-row: 6;
     }
 
-    /* その他のモーダルのz-indexも確認 */
     #modal-overlay {
-        z-index: 1000;
+        z-index: 1006;
     }
 
     #modal {
-        z-index: 1001;
+        z-index: 1006;
     }
 
     #delete-modal-overlay {
-        z-index: 1000;
+        z-index: 1006;
     }
 
     #delete-modal {
-        z-index: 1001;
+        z-index: 1006;
     }
     /* 編集モーダルのスタイル */
     #edit-modal-overlay {
@@ -323,7 +330,7 @@
         height: 100%;
         background: rgba(0, 0, 0, 0.5); /* 半透明の背景 */
         display: none; /* 初期状態は非表示 */
-        z-index: 1002;
+        z-index: 1006;
     }
 
     #edit-modal {
@@ -336,9 +343,87 @@
         border: 1px solid #ddd;
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        width: 400px;
+        z-index: 1006;
+        width: auto;
         display: none; /* 初期状態は非表示 */
-        z-index: 1003;
+    }
+    /* カレンダー関連のスタイルを修正 */
+    #calendar-container {
+        position: relative;
+        grid-column: 1;
+        grid-row: 2;
+        padding: 3px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 180px; /* カレンダーの横幅を縮小 */
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column; /* 縦方向に要素を配置 */
+        align-items: center; /* 中央揃え */
+    }
+    
+    /* flatpickrカレンダーのサイズ調整 */
+    .flatpickr-calendar {
+        position: absolute; 
+        margin-top: 3px;
+        width: 170px ; /* カレンダー本体の横幅を縮小 */
+        z-index: 1005; /* モーダルのz-indexが1003なので、それより高く */
+    }
+
+    /* カレンダーの内部要素の横幅調整 */
+    .flatpickr-months,
+    .flatpickr-weekdays,
+    .flatpickr-days {
+        width: 170px ;
+    }
+
+    .flatpickr-days {
+        width: 170px;
+    }
+
+    .dayContainer {
+        width: 170px;
+        min-width: 170px ;
+        max-width: 170px ;
+    }
+
+    /* 月の表示部分の調整 */
+    .flatpickr-current-month {
+        padding: 0;
+        font-size: 90%; 
+    }
+    .backToTodayButton {
+        display: block;
+        margin: 10px auto; /* 上下の余白と中央寄せ */
+        margin-top: 10px; /* 上部にスペースを追加 */
+    }
+
+    /* dateRange のコンテナスタイル調整 */
+    #dateRange {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    /* Flatpickr カレンダーの位置調整 */
+    .flatpickr-calendar {
+        z-index: 1005; /* 他の要素より前面に表示 */
+    }
+    /* flatpickrカレンダーの横幅を大きくする */
+    .flatpickr-calendar.rangeMode.animate.arrowTop.arrowLeft.open {
+        width: auto; /* 必要に応じて横幅を調整 */
+    }
+    /* モーダル内のカレンダーの横幅を大きくする */
+    .flatpickr-calendar.modal-calendar {
+        width: auto; /* 必要に応じて横幅を調整 */
+    }
+    .flatpickr-calendar.modal-calendar .flatpickr-days {
+        max-width: 100%; /* カレンダーの日付部分の横幅を調整 */
+    }
+    .scale-buttons {
+        margin-top: 10px; /* 上部にスペースを追加 */
     }
     </style>
 </head>
@@ -347,15 +432,17 @@
         <!-- <div class="current-date" id="currentDate"></div>
         <div class="current-month" id="currentMonth"></div> -->
         <div id="calendar-container">
-            <input type="date" id="calendar">
+            <div id="calendar-input-container">
+                <input type="text" id="calendar">
+            </div>
+            <button id="backToToday" class="backToTodayButton">今日に戻る</button>
+            <div class="scale-buttons"> 
+                <button id="monthView">月</button>
+                <button id="weekView">週</button>
+                <button id="dayView">日</button>
+            </div>
         </div>
         
-        <div class="scale-buttons">
-            <button id="monthView">月</button>
-            <button id="weekView">週</button>
-            <button id="dayView">日</button>
-        </div>
-
         <div class="timeline-container">
             <div id="timeline"></div>
         </div>
@@ -375,6 +462,7 @@
         <div class="input-group">
             <label>日付範囲:</label>
             <input type="text" id="dateRange">
+            <div id="error-date-time" style="color: red; display: none;">日付と時間を正しく入力してください</div>
         </div>
         <div class="input-group">
             <label>開始時刻:</label>
@@ -387,10 +475,12 @@
         <div class="input-group">
             <label>タイトル:</label>
             <input type="text" id="title">
+            <div id="error-title" style="color: red; display: none;">タイトルを入力してください</div>
         </div>
         <div class="input-group">
             <label>メモ:</label>
             <textarea id="memo"></textarea>
+            <div id="error-memo" style="color: red; display: none;">メモを入力してください</div>
         </div>
         <div class="input-group">
             <label>カラー:</label>
@@ -463,6 +553,7 @@
             必須事項を入力してください
         </div>
     </div>
+    <!-- スクリプトが一度だけ読み込まれていることを確認 -->
     <script src="renderer.js"></script>
 </body>
 </html>
