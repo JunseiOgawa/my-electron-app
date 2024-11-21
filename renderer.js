@@ -67,23 +67,37 @@ function changeTimeScale(scale) {
     try {
         if (scale === 'week' && calendarInput.value) {
             const [year, week] = calendarInput.value.split('-W').map(Number);
+            console.log(`選択された年: ${year}, 週番号: ${week}`);
             if (!isNaN(year) && !isNaN(week)) {
                 selectedDate = getDateOfISOWeek(year, week);
+                console.log(`選択された週の開始日（ISO）: ${selectedDate}`);
             }
         } else if (calendarInput.value) {
             selectedDate = new Date(calendarInput.value);
+            console.log(`選択された日付: ${selectedDate}`);
         }
 
         // selectedDateが無効な場合は現在日時を使用
         if (!selectedDate || isNaN(selectedDate.getTime())) {
             selectedDate = new Date();
+            console.log('選択された日付が無効なため、現在日時を使用します。');
         }
     } catch (error) {
         console.error('Date conversion error:', error);
         selectedDate = new Date();
     }
 
+    if (scale === 'week') {
+        // 週選択モードの場合の処理を修正
+        if (calendarInput._flatpickr && calendarInput._flatpickr.selectedDates[0]) {
+            selectedDate = calendarInput._flatpickr.selectedDates[0];
+        } else {
+            selectedDate = new Date();
+        }
+    }
+
     let start, end, timeScale;
+    console.log(`スケール変更: ${scale}, 選択日付: ${selectedDate}`);
 
     switch(scale) {
         case 'month':
@@ -132,6 +146,9 @@ function changeTimeScale(scale) {
             end.setHours(23, 59, 59, 999);
             
             timeScale = { scale: 'day', step: 1 };
+            
+            console.log(`計算された週の開始日: ${start}`);
+            console.log(`計算された週の終了日: ${end}`);
             
             // 週モード用のflatpickr設定
             flatpickr("#calendar", {
@@ -222,6 +239,7 @@ function changeTimeScale(scale) {
     
     // 範囲設定前に値のバリデーション
     if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        console.log(`タイムラインのウィンドウを設定: 開始=${start}, 終了=${end}`);
         timeline.setWindow(start, end, {animation: false});
     } else {
         console.error('Invalid date range:', { start, end });
@@ -230,6 +248,7 @@ function changeTimeScale(scale) {
 
 // ISO週番号から日付を取得する補助関数
 function getDateOfISOWeek(year, week) {
+    console.log(`getDateOfISOWeek が呼び出されました。年: ${year}, 週番号: ${week}`);
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
     const dayOfWeek = simple.getDay();
     const ISOweekStart = simple;
@@ -240,6 +259,7 @@ function getDateOfISOWeek(year, week) {
         ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
     }
     
+    console.log(`計算されたISO週の開始日: ${ISOweekStart}`);
     return ISOweekStart;
 }
 
@@ -305,7 +325,7 @@ function updateCalendarInputType(scale) {
     // フラットピッカーの設定
     switch(scale) {
         case 'month':
-            flatpickr(newInput, {
+            calendarInstance = flatpickr(newInput, {
                 inline: true,
                 mode: "single",
                 dateFormat: "Y-m",
@@ -322,7 +342,7 @@ function updateCalendarInputType(scale) {
             });
             break;
         case 'week':
-            flatpickr(newInput, {
+            calendarInstance = flatpickr(newInput, {
                 inline: true,
                 mode: "range",
                 weekNumbers: true,
@@ -335,7 +355,7 @@ function updateCalendarInputType(scale) {
             });
             break;
         case 'day':
-            flatpickr(newInput, {
+            calendarInstance = flatpickr(newInput, {
                 inline: true,
                 mode: "single",
                 dateFormat: "Y-m-d",
@@ -602,7 +622,7 @@ function setupEditModalListeners() {
 
         let isValid = true;
 
-        // 必須事項のバリデーション
+        // 必須項のバリデーション
         if (!startDate) {
             const errorDateTime = document.getElementById('edit-error-date-time');
             if (errorDateTime) {
@@ -808,7 +828,7 @@ function setupEventListeners() {
     setupDeleteModalListeners();
     // モーダルクリックイベントの設定
     setupModalClickHandlers();
-    // 編集モーダルのイベントリスナーを設定
+    // 編集モーダルのイ���ントリスナーを設定
     setupEditModalListeners();
     
     // タイムラインにダブルクリックイベントを追加
@@ -1009,10 +1029,21 @@ function initializeCalendar(scale) {
         inline: true,
         locale: "ja",
         dateFormat: "Y-m-d",
+        closeOnSelect: true, // closeOnSelectを追加
         onChange: function(selectedDates) {
             if (selectedDates.length > 0) {
-                // 選択された日付に基づいてタイムラインを更新
-                changeTimeScale(scale);
+                if (scale === 'week') {
+                    const selectedWeekDate = selectedDates[0];
+                    console.log(`選択された週の日付: ${selectedWeekDate}`);
+                    const startOfWeek = getStartOfWeek(selectedWeekDate);
+                    const endOfWeek = getEndOfWeek(selectedWeekDate);
+                    console.log(`週の開始日: ${new Date(startOfWeek)}`);
+                    console.log(`週の終了日: ${new Date(endOfWeek)}`);
+                    timeline.setWindow(startOfWeek, endOfWeek, {animation: false});
+                } else {
+                    // 他のスケールの処理
+                    changeTimeScale(scale);
+                }
             }
         },
     };
@@ -1029,11 +1060,24 @@ function initializeCalendar(scale) {
             break;
 
         case 'week':
-            // 週モードの設定（必要に応じて追加）
+            calendarOptions = {
+                inline: true,
+                locale: "ja",
+                dateFormat: "Y-\\WW", // 週番号形式を指定
+                weekNumbers: true,
+                onChange: function(selectedDates) {
+                    if (selectedDates.length > 0) {
+                        const selectedDate = selectedDates[0];
+                        const startOfWeek = getStartOfWeek(selectedDate);
+                        const endOfWeek = getEndOfWeek(selectedDate);
+                        timeline.setWindow(startOfWeek, endOfWeek, {animation: false});
+                    }
+                }
+            };
             break;
 
         case 'day':
-            // 日モードの設定（必要に応じて��加）
+            // 日モードの設定（必要に応じて追加）
             break;
 
         default:
@@ -1042,6 +1086,23 @@ function initializeCalendar(scale) {
 
     // 新しいflatpickrインスタンスを作成
     calendarInstance = flatpickr("#calendar", calendarOptions);
+}
+
+// 週の開始日を取得する関数を追加
+function getStartOfWeek(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 月曜日を開始日とする
+    return new Date(d.setDate(diff)).setHours(0, 0, 0, 0);
+}
+
+// 週の終了日を取得する関数を追加
+function getEndOfWeek(date) {
+    const start = new Date(getStartOfWeek(date));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return end;
 }
 
 // グローバル変数としてflatpickrのインスタンスを保持

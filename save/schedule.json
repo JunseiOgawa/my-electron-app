@@ -25,5 +25,14 @@
     "title": "実装",
     "group": 3,
     "style": "background-color: #ff00ff;"
+  },
+  {
+    "id": 1732164492383,
+    "content": "週モードの修正",
+    "start": "2024-11-19T04:47:00.000Z",
+    "end": "2024-11-20T04:47:00.000Z",
+    "title": "修正",
+    "group": 4,
+    "style": "background-color: #e258fd;"
   }
 ]
