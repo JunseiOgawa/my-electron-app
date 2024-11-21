@@ -1015,6 +1015,13 @@ function setupZoomSlider() {
     });
 }
 
+function openChat() {
+    alert('開き直して下さい　"途中"');  //チャットボタンのonclickイベントこの下
+    
+    
+
+}
+
 // カレンダーの初期化を一元化
 function initializeCalendar(scale) {
     // 既存のflatpickrインスタンスを破棄して再初期化
