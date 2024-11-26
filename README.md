@@ -8,5 +8,10 @@
 ライブラリ
 - vis.js
 - flatpickr
+DB
+~~NeDB~~
+-SQLite
+ORM
+-prisma
 実行
 - node.js

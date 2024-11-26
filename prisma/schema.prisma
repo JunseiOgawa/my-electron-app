@@ -1,0 +1,26 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Schedule {
+  id        Int      @id @default(autoincrement())
+  title     String   // タイトル
+  content   String   // 内容
+  start     DateTime // 開始時間
+  end       DateTime // 終了時間
+  group     Int      @default(1) // レイヤー番号
+  style     String?  // スタイル（色など）
+  memo      String?  // メモ
+  createdAt DateTime @default(now()) // 作成日時
+  updatedAt DateTime @updatedAt // 更新日時
+
+  @@index([start, end]) // 日付による検索を効率化
+}

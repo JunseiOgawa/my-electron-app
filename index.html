@@ -460,6 +460,36 @@
     .vis-panel.vis-right {
         border-radius: 8px;
     }
+    /* チャットドロワーのスタイル */
+    .chat-drawer {
+        position: fixed;
+        top: 0;
+        right: -200px; /* 初期状態では非表示 */
+        width: 200px;
+        height: 100%;
+        background-color: white;
+        box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+        transition: right 0.3s ease;
+        z-index: 1008;
+    }
+
+    .chat-drawer.open {
+        right: 0;
+    }
+
+    .chat-content {
+        padding: 20px;
+    }
+
+    .chat-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        padding: 5px;
+        background: none;
+        border: none;
+    }
     </style>
 </head>
 <body>
@@ -594,6 +624,14 @@
         <button id="closeEditModalButton">閉じる</button>
         <div id="edit-error-message" style="color: red; display: none; grid-column: 1 / span 2; grid-row: 7; text-align: center;">
             必須事項を入力してください
+        </div>
+    </div>
+    <!-- チャットドロワー -->
+    <div class="chat-drawer" id="chatDrawer">
+        <button class="chat-close" onclick="closeChat()">×</button>
+        <div class="chat-content">
+            <h3>チャット</h3>
+            <!-- チャットの内容をここに追加 -->
         </div>
     </div>
     <script src="renderer.js"></script>

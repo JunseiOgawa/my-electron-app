@@ -1016,10 +1016,11 @@ function setupZoomSlider() {
 }
 
 function openChat() {
-    alert('開き直して下さい　"途中"');  //チャットボタンのonclickイベントこの下
-    
-    
+    document.getElementById('chatDrawer').classList.add('open');
+}
 
+function closeChat() {
+    document.getElementById('chatDrawer').classList.remove('open');
 }
 
 // カレンダーの初期化を一元化
