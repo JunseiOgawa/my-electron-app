@@ -25,6 +25,8 @@ let selectedItem = null;
 // renderer.js の initTimeline 関数を修正
 function initTimeline() {
     const container = document.getElementById('timeline');
+
+    // items と groups を先に初期化
     items = new vis.DataSet();
     groups = new vis.DataSet([
         { id: 1, content: 'レイヤー 1' },
@@ -33,7 +35,7 @@ function initTimeline() {
         { id: 4, content: 'レイヤー 4' }
     ]);
 
-    // 初期設定は日表示
+    // options を先に定義
     const options = {
         start: new Date().setHours(0, 0, 0, 0),
         end: new Date().setHours(24, 0, 0, 0),
@@ -54,7 +56,10 @@ function initTimeline() {
         zoomMax: 1000 * 60 * 60 * 24 * 7 * 4,  // ひと月
     };
 
+    // timeline を一度だけ初期化
     timeline = new vis.Timeline(container, items, groups, options);
+    console.log('タイムラインが初期化されました'); // デバッグ用
+
     setupTimeScaleButtons(); // 粒度変更ボタンの設定
 }
 
@@ -463,7 +468,14 @@ function clearForm() {
 }
 // スケジュールを保存
 function saveSchedule() {
-    const schedule = items.get();
+    const schedule = items.get().map(item => ({
+        title: item.title,
+        content: item.content,
+        start: item.start,
+        end: item.end,
+        group: item.group,
+        style: item.style
+    }));
     window.electron.send('save_schedule', schedule);
 }
 
@@ -828,7 +840,7 @@ function setupEventListeners() {
     setupDeleteModalListeners();
     // モーダルクリックイベントの設定
     setupModalClickHandlers();
-    // 編集モーダルのイ���ントリスナーを設定
+    // 編集モーダルのイベントリスナーを設定
     setupEditModalListeners();
     
     // タイムラインにダブルクリックイベントを追加
@@ -894,27 +906,32 @@ window.electron.receive('get_schedule', () => {
 
 // Electronからのメッセージ受信 jsonの中身読み込み
 window.electron.receive('open_file', (data) => {
+    console.log('Received open_file data:', data); // デバッグ用
     items.clear();
     data.forEach(item => {
         // スタイル文字列からカラー値を抽出
         let color = '#4CAF50'; // デフォルトカラー
         if (item.style) {
-            const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/);//正規でカラーを取得
+            const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/); // 正規でカラーを取得
             if (match) {
                 color = match[1];
             }
         }
 
-        items.add({
-            id: item.id,
+        const formattedItem = {
+            id: Number(item.id),
             content: item.content,
             start: new Date(item.start),
             end: new Date(item.end),
             title: item.title,
             group: parseInt(item.group, 10),
-            style: item.style || `background-color: ${color};`
-        });
+            style: item.style || `background-color: #4CAF50;`
+        };
+        console.log('Adding item to timeline:', formattedItem); // デバッグ用
+        items.add(formattedItem);
     });
+    console.log('Setting items to timeline.');
+    timeline.setItems(items);
 });
 
 document.getElementById('addButton').addEventListener('click', function() {
@@ -1115,3 +1132,38 @@ function getEndOfWeek(date) {
 
 // グローバル変数としてflatpickrのインスタンスを保持
 let calendarInstance = null;
+
+// スケジュールの取得をリクエスト
+window.electron.send('get_schedule');
+
+// スケジュールの取得レスポンスを受信
+window.electron.receive('get_schedule_response', (data) => {
+    console.log('Received get_schedule_response:', data);//デバッグ用
+    if (data.error) {
+        alert(`スケジュールの取得に失敗しました: ${data.error}`);
+        return;
+    }
+    items.clear();
+    data.forEach(item => {
+        items.add({
+            id: item.id,
+            content: item.content,
+            start: new Date(item.start),
+            end: new Date(item.end),
+            title: item.title,
+            group: parseInt(item.group, 10),
+            style: item.style || `background-color: #4CAF50;`
+        });
+    });
+    timeline.setItems(items);
+});
+// まるごとデバッグ用
+window.electron.receive('save_schedule_response', (response) => {
+    console.log('Received save_schedule_response:', response);
+    if (response.success) {
+        alert('スケジュールが正常に保存されました。');
+        loadSchedules();
+    } else {
+        alert(`スケジュールの保存に失敗しました: ${response.error}`);
+    }
+});//ここまで

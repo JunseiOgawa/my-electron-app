@@ -1,26 +1,26 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
 model Schedule {
-  id        Int      @id @default(autoincrement())
-  title     String   // タイトル
-  content   String   // 内容
-  start     DateTime // 開始時間
-  end       DateTime // 終了時間
-  group     Int      @default(1) // レイヤー番号
-  style     String?  // スタイル（色など）
-  memo      String?  // メモ
-  createdAt DateTime @default(now()) // 作成日時
-  updatedAt DateTime @updatedAt // 更新日時
-
-  @@index([start, end]) // 日付による検索を効率化
+  id        BigInt      @id @default(autoincrement())
+  title     String
+  content   String
+  start     DateTime
+  end       DateTime
+  group     Int      @default(1)
+  style     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

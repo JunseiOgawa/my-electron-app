@@ -1,6 +1,7 @@
-const { app, BrowserWindow, dialog, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
-const fs = require('fs');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 let mainWindow;
 let settingsWindow = null;
@@ -21,32 +22,10 @@ function createWindow() {
 
     mainWindow.loadFile('index.html');
 
-    // DOMContentLoadedイベントを待ってからスケジュールを読み込む
-    mainWindow.webContents.on('dom-ready', () => {
-        const saveDir = path.join(__dirname, 'save');
-        const schedulePath = path.join(saveDir, 'schedule.json');
-        
-        if (!fs.existsSync(saveDir)) {
-            fs.mkdirSync(saveDir);
-        }
-        
-        if (!fs.existsSync(schedulePath)) {
-            fs.writeFileSync(schedulePath, JSON.stringify([]));
-        }
-        
-        fs.readFile(schedulePath, 'utf-8', (err, data) => {
-            if (err) {
-                console.error('スケジュールの読み込みに失敗しました:', err);
-                return;
-            }
-            mainWindow.webContents.send('open_file', JSON.parse(data));
-        });
-    });
-
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
         if (!app.isPackaged) {
-            mainWindow.webContents.openDevTools(); // リリース時に削除
+            mainWindow.webContents.openDevTools();
         }
     });
 
@@ -54,7 +33,7 @@ function createWindow() {
         mainWindow = null;
     });
 
-    createMenu(); // ウィンドウ作成時にメニューを作成
+    createMenu();
 }
 
 function createSettingsWindow() {
@@ -143,25 +122,39 @@ function saveSchedule() {
 app.on('ready', () => {
     createWindow();
 
-    // アプリ起動時に前回のスケジュールを読み込む
-    const saveDir = path.join(__dirname, 'save');
-    const schedulePath = path.join(saveDir, 'schedule.json');
-    
-    // 定義しているフォルダがない場合は作成
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir);
-    }
-    // ファイルがない場合は作成
-    if (!fs.existsSync(schedulePath)) {
-        fs.writeFileSync(schedulePath, JSON.stringify([]));
-    }
-    // ファイルがある場合は読み込み
-    fs.readFile(schedulePath, 'utf-8', (err, data) => {
-        if (err) {
-            console.error('スケジュールの読み込みに失敗しました:', err);
-            return;
+    // スケジュールを取得するIPCハンドラー
+    ipcMain.on('get_schedule', async (event) => {
+        try {
+            const schedules = await prisma.schedule.findMany();
+            console.log('Fetched schedules:', schedules); // デバッグ用
+            event.reply('get_schedule_response', schedules);
+        } catch (error) {
+            console.error('スケジュールの取得に失敗しました:', error);
+            event.reply('get_schedule_response', { error: error.message });
         }
-        mainWindow.webContents.send('open_file', JSON.parse(data));
+    });
+
+    // スケジュールを保存するIPCハンドラー
+    ipcMain.on('save_schedule', async (event, data) => {
+        console.log('Received save_schedule IPC with data:', data); // ログ追加
+        try {
+            await prisma.schedule.createMany({
+                data: data.map(item => ({
+                    title: item.title,
+                    content: item.content,
+                    start: new Date(item.start),
+                    end: new Date(item.end),
+                    group: item.group,
+                    style: item.style
+                })),
+                skipDuplicates: true,
+            });
+            console.log('Schedule saved successfully.'); // ログ追加
+            event.reply('save_schedule_response', { success: true });
+        } catch (error) {
+            console.error('Error saving schedule:', error); // エラーログ追加
+            event.reply('save_schedule_response', { success: false, error: error.message });
+        }
     });
 });
 
@@ -175,26 +168,6 @@ app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
-});
-
-// スケジュールデー���を保存するIPCイベント
-ipcMain.on('save_schedule', (event, data) => {
-    console.log('Received schedule data to save:', data);
-    const saveDir = path.join(__dirname, 'save');
-    const schedulePath = path.join(saveDir, 'schedule.json');
-
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir);
-        console.log(`Created directory: ${saveDir}`);
-    }
-
-    fs.writeFile(schedulePath, JSON.stringify(data, null, 2), (err) => {
-        if (err) {
-            console.error('スケジュールの保存に失敗しました:', err);
-        } else {
-            console.log(`スケジュールが保存されました: ${schedulePath}`);
-        }
-    });
 });
 
 // IPC通信を追加
