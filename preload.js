@@ -1,16 +1,15 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
-    send: (channel, data) => {
-        const validChannels = ['save_schedule', 'open-settings'];  
-        if (validChannels.includes(channel)) {
+    ipcRenderer: {
+        send: (channel, data) => {
             ipcRenderer.send(channel, data);
-        }
-    },
-    receive: (channel, func) => {
-        const validChannels = ['open_file', 'get_schedule'];
-        if (validChannels.includes(channel)) {
+        },
+        receive: (channel, func) => {
             ipcRenderer.on(channel, (event, ...args) => func(...args));
+        },
+        on: (channel, listener) => {
+            ipcRenderer.on(channel, (event, ...args) => listener(...args));
         }
     }
 });

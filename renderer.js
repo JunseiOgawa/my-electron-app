@@ -1,3 +1,8 @@
+//デバッグ用グローバルエラーハンドラ
+window.onerror = function(message, source, lineno, colno, error) {
+    console.error(`エラー: ${message} at ${source}:${lineno}:${colno}`);
+};
+
 // 現在の日付を表示
 function updateDateTime() {
     const now = new Date();
@@ -22,10 +27,14 @@ let groups;
 let contextMenu;
 let selectedItem = null;
 
+// メインプロセスとのIPC通信を設定
+const ipcRenderer = window.electron.ipcRenderer;
+
 // renderer.js の initTimeline 関数を修正
 function initTimeline() {
+    console.log('initTimeline 関数が開始されました');//デバッグ用
     const container = document.getElementById('timeline');
-
+    console.log('タイムラインコンテナを取得しました');//デバッグ用
     // items と groups を先に初期化
     items = new vis.DataSet();
     groups = new vis.DataSet([
@@ -34,8 +43,8 @@ function initTimeline() {
         { id: 3, content: 'レイヤー 3' },
         { id: 4, content: 'レイヤー 4' }
     ]);
+    console.log('items と groups を初期化');//デバッグ用
 
-    // options を先に定義
     const options = {
         start: new Date().setHours(0, 0, 0, 0),
         end: new Date().setHours(24, 0, 0, 0),
@@ -55,12 +64,41 @@ function initTimeline() {
         zoomMin: 1000 * 60 * 15,  // 15分
         zoomMax: 1000 * 60 * 60 * 24 * 7 * 4,  // ひと月
     };
-
-    // timeline を一度だけ初期化
     timeline = new vis.Timeline(container, items, groups, options);
     console.log('タイムラインが初期化されました'); // デバッグ用
 
-    setupTimeScaleButtons(); // 粒度変更ボタンの設定
+    console.log('setupTimeScaleButtons を呼び出します');//デバッグ用
+    setupTimeScaleButtons();
+    console.log('setupTimeScaleButtons の呼び出しが完了');//デバッグ用
+
+    // メインプロセスにスケジュール取得をリクエスト
+    ipcRenderer.send('get_schedule');
+
+    // スケジュールデータを受信
+    ipcRenderer.on('get_schedule_response', (event, data) => {
+        console.log('Received get_schedule_response:', data);
+        if (data.error) {
+            console.error('スケジュールの取得中にエラーが発生しました:', data.error);
+            return;
+        }
+        items.clear();
+        data.forEach(item => {
+            if (!item.start) {
+                console.error('Item missing "start" property:', item);
+                return;
+            }
+            items.add({
+                id: item.id,
+                content: item.content,
+                start: new Date(item.start),
+                end: new Date(item.end),
+                title: item.title,
+                group: parseInt(item.group, 10),
+                style: item.style || `background-color: #4CAF50;`
+            });
+        });
+        timeline.setItems(items);
+    });
 }
 
 // vis.js の表示範囲を制限するために changeTimeScale 関数を修正
@@ -485,7 +523,6 @@ function showModal() {
     document.getElementById('modal').style.display = 'grid'; // display: grid に変更
 }
 
-// モーダルを非表示にする関数
 function hideModal() {
     document.getElementById('modal-overlay').style.display = 'none';
     document.getElementById('modal').style.display = 'none';
@@ -749,14 +786,22 @@ function setupEditModalListeners() {
 
 // 初期化
 function initialize() {
+    console.log('initialize が開始されました');
     initTimeline();
+    console.log('initTimeline を呼び出しました');
     initContextMenu();
+    console.log('initContextMenu を呼び出しました');
     setupEventListeners();
+    console.log('setupEventListeners を呼び出しました');
     setupZoomSlider();
+    console.log('setupZoomSlider を呼び出しました');
     setupTimeScaleButtons();
+    console.log('setupTimeScaleButtons を呼び出しました');
 
     // 初期スケールを 'day' に設定してカレンダーを初期化
+    console.log('初期スケール "day" でカレンダーを初期化します');
     initializeCalendar('day');
+    console.log('initialize 関数が終了しました');
 }
 
 // タイムライン上の右クリックイベント
@@ -867,9 +912,13 @@ function setupEventListeners() {
 
 //DOMの読み込みが完了したら初期化
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded を呼び出しました');//デバッグ用
     initialize();
+    console.log('initialize 関数を呼び出しました');//デバッグ用
     initializeCalendar('day');
-    hideModal();    
+    console.log('initializeCalendar を呼び出しました');//デバッグ用
+    hideModal();
+    console.log('hideModal を呼び出しました');   
 
     // dateRange フィールドの flatpickr 初期化
     flatpickr("#dateRange", {
@@ -887,6 +936,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    console.log('dateRange の flatpickr を初期化しました');//デバッグ用
 
     // editDateRange フィールドの flatpickr 初期化を追加
     flatpickr("#editDateRange", {
@@ -894,30 +944,27 @@ document.addEventListener('DOMContentLoaded', function() {
         dateFormat: "Y-m-d",
         locale: "ja",
         onChange: function(selectedDates) {
-            // 編集用の選択された日付範囲を処理するコードを追加
+            console.log('editDateRange の onChange が呼び出されました');//デバッグ用
         }
     });
+    console.log('editDateRange の flatpickr を初期化しました');//デバッグ用
 });
 
 // スケジュールを保存
-window.electron.receive('get_schedule', () => {
+window.electron.ipcRenderer.receive('get_schedule', () => {
     saveSchedule();
 });
 
-// Electronからのメッセージ受信 jsonの中身読み込み
-window.electron.receive('open_file', (data) => {
+// Electronからのメッセージ受信
+window.electron.ipcRenderer.receive('open_file', (data) => {
     console.log('Received open_file data:', data); // デバッグ用
     items.clear();
     data.forEach(item => {
-        // スタイル文字列からカラー値を抽出
-        let color = '#4CAF50'; // デフォルトカラー
-        if (item.style) {
-            const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/); // 正規でカラーを取得
-            if (match) {
-                color = match[1];
-            }
+        // 'start'プロパティが存在するか確認
+        if (!item.start) {
+            console.error('Item missing "start" property:', item);
+            return;
         }
-
         const formattedItem = {
             id: Number(item.id),
             content: item.content,
@@ -1134,17 +1181,32 @@ function getEndOfWeek(date) {
 let calendarInstance = null;
 
 // スケジュールの取得をリクエスト
-window.electron.send('get_schedule');
+window.electron.ipcRenderer.send('get_schedule');
 
 // スケジュールの取得レスポンスを受信
-window.electron.receive('get_schedule_response', (data) => {
-    console.log('Received get_schedule_response:', data);//デバッグ用
+// renderer.js
+
+window.electron.ipcRenderer.receive('get_schedule_response', (data) => {
+    console.log('Received get_schedule_response:', data);
+    
+    if (!data) {
+        console.error('Received undefined data');
+        alert('スケジュールの取得に失敗しました。');
+        return;
+    }
+
     if (data.error) {
         alert(`スケジュールの取得に失敗しました: ${data.error}`);
         return;
     }
+
     items.clear();
     data.forEach(item => {
+        if (!item.start || !item.end) {
+            console.error('Item missing "start" or "end" property:', item);
+            return;
+        }
+        
         items.add({
             id: item.id,
             content: item.content,
@@ -1152,13 +1214,12 @@ window.electron.receive('get_schedule_response', (data) => {
             end: new Date(item.end),
             title: item.title,
             group: parseInt(item.group, 10),
-            style: item.style || `background-color: #4CAF50;`
+            style: item.style || 'background-color: #4CAF50;'
         });
     });
-    timeline.setItems(items);
 });
-// まるごとデバッグ用
-window.electron.receive('save_schedule_response', (response) => {
+
+window.electron.ipcRenderer.receive('save_schedule_response', (response) => {
     console.log('Received save_schedule_response:', response);
     if (response.success) {
         alert('スケジュールが正常に保存されました。');
@@ -1166,4 +1227,4 @@ window.electron.receive('save_schedule_response', (response) => {
     } else {
         alert(`スケジュールの保存に失敗しました: ${response.error}`);
     }
-});//ここまで
+});

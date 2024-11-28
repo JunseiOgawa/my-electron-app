@@ -16,7 +16,7 @@ function createWindow() {
             devTools: !app.isPackaged,
             nodeIntegration: false,
             enableRemoteModule: false,
-            contentSecurityPolicy: "default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com;"
+            allowRunningInsecureContent: false
         }
     });
 
@@ -121,18 +121,28 @@ function saveSchedule() {
 
 app.on('ready', () => {
     createWindow();
+    createMenu();
 
     // スケジュールを取得するIPCハンドラー
-    ipcMain.on('get_schedule', async (event) => {
-        try {
-            const schedules = await prisma.schedule.findMany();
-            console.log('Fetched schedules:', schedules); // デバッグ用
-            event.reply('get_schedule_response', schedules);
-        } catch (error) {
-            console.error('スケジュールの取得に失敗しました:', error);
-            event.reply('get_schedule_response', { error: error.message });
-        }
-    });
+    // main.js
+ipcMain.on('get_schedule', async (event) => {
+    try {
+        const schedules = await prisma.schedule.findMany();
+        const formattedSchedules = schedules.map(schedule => ({
+            id: schedule.id.toString(),
+            title: schedule.title,
+            content: schedule.content,
+            start: schedule.start ? schedule.start.toISOString() : null,
+            end: schedule.end ? schedule.end.toISOString() : null,
+            group: schedule.group,
+            style: schedule.style
+        })).filter(item => item.start && item.end); // startとendが存在するもののみ
+        event.reply('get_schedule_response', formattedSchedules);
+    } catch (error) {
+        console.error('スケジュールの取得に失敗しました:', error);
+        event.reply('get_schedule_response', { error: error.message });
+    }
+});
 
     // スケジュールを保存するIPCハンドラー
     ipcMain.on('save_schedule', async (event, data) => {
