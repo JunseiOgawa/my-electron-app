@@ -1,6 +1,17 @@
+// main.js の先頭部分
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
+
+// UUIDの生成関数をmain.js内で直接定義
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 const prisma = new PrismaClient();
 
 let mainWindow;
@@ -128,7 +139,7 @@ app.on('ready', () => {
 ipcMain.on('get_schedule', async (event) => {
     try {
         const schedules = await prisma.schedule.findMany();
-        const formattedSchedules = schedules.map(schedule => ({
+        const formattedSchedules = schedules.map(schedule => ({//mapで配列の要素を変換する
             id: schedule.id.toString(),
             title: schedule.title,
             content: schedule.content,
@@ -138,32 +149,84 @@ ipcMain.on('get_schedule', async (event) => {
             style: schedule.style
         })).filter(item => item.start && item.end); // startとendが存在するもののみ
         event.reply('get_schedule_response', formattedSchedules);
-    } catch (error) {
-        console.error('スケジュールの取得に失敗しました:', error);
-        event.reply('get_schedule_response', { error: error.message });
-    }
-});
+        console.log('Sending get_schedule_response:', formattedSchedules);//デバッグログ用
+        } catch (error) {
+            console.error('スケジュールの取得に失敗しました:', error);
+            event.reply('get_schedule_response', { error: error.message });
+        }
+    });
 
     // スケジュールを保存するIPCハンドラー
     ipcMain.on('save_schedule', async (event, data) => {
-        console.log('Received save_schedule IPC with data:', data); // ログ追加
+        console.log('Received save_schedule IPC with data:', data);
         try {
-            await prisma.schedule.createMany({
-                data: data.map(item => ({
-                    title: item.title,
-                    content: item.content,
-                    start: new Date(item.start),
-                    end: new Date(item.end),
-                    group: item.group,
-                    style: item.style
-                })),
-                skipDuplicates: true,
+            await prisma.$transaction(async (tx) => {
+                // データベースの既存レコードを取得
+                const existingSchedules = await tx.schedule.findMany({
+                    select: { id: true }
+                });
+                const existingIds = new Set(existingSchedules.map(s => s.id));
+
+                // 各スケジュールを処理
+                for (const item of data) {
+                    const scheduleData = {
+                        title: item.title || '',
+                        content: item.content || '',
+                        start: new Date(item.start),
+                        end: new Date(item.end),
+                        group: item.group || 1,
+                        style: item.style || 'background-color: #4CAF50;'
+                    };
+
+                    if (existingIds.has(item.id)) {
+                        // 既存レコードの更新
+                        await tx.schedule.update({
+                            where: { id: item.id },
+                            data: scheduleData
+                        });
+                    } else {
+                        // 新規レコードの作成
+                        await tx.schedule.create({
+                            data: {
+                                id: item.id,
+                                ...scheduleData
+                            }
+                        });
+                    }
+                }
+
+                // データベースに存在するが、送信データに含まれないレコードを削除
+                const newIds = new Set(data.map(item => item.id));
+                const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+                
+                if (idsToDelete.length > 0) {
+                    await tx.schedule.deleteMany({
+                        where: {
+                            id: {
+                                in: idsToDelete
+                            }
+                        }
+                    });
+                }
             });
-            console.log('Schedule saved successfully.'); // ログ追加
+            
             event.reply('save_schedule_response', { success: true });
         } catch (error) {
-            console.error('Error saving schedule:', error); // エラーログ追加
-            event.reply('save_schedule_response', { success: false, error: error.message });
+            console.error('スケジュールの保存に失敗しました:', error);
+            event.reply('save_schedule_response', { error: error.message });
+        }
+    });
+
+    // 削除用の別ハンドラー
+    ipcMain.on('delete_schedule', async (event, id) => {
+        try {
+            await prisma.schedule.delete({
+                where: { id: BigInt(id) }
+            });
+            event.reply('delete_schedule_response', { success: true });
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+            event.reply('delete_schedule_response', { success: false, error: error.message });
         }
     });
 });

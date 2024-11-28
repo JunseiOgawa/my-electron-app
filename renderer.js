@@ -71,35 +71,10 @@ function initTimeline() {
     setupTimeScaleButtons();
     console.log('setupTimeScaleButtons の呼び出しが完了');//デバッグ用
 
-    // メインプロセスにスケジュール取得をリクエスト
-    ipcRenderer.send('get_schedule');
-
-    // スケジュールデータを受信
-    ipcRenderer.on('get_schedule_response', (event, data) => {
-        console.log('Received get_schedule_response:', data);
-        if (data.error) {
-            console.error('スケジュールの取得中にエラーが発生しました:', data.error);
-            return;
-        }
-        items.clear();
-        data.forEach(item => {
-            if (!item.start) {
-                console.error('Item missing "start" property:', item);
-                return;
-            }
-            items.add({
-                id: item.id,
-                content: item.content,
-                start: new Date(item.start),
-                end: new Date(item.end),
-                title: item.title,
-                group: parseInt(item.group, 10),
-                style: item.style || `background-color: #4CAF50;`
-            });
-        });
+    
         timeline.setItems(items);
-    });
-}
+    };
+
 
 // vis.js の表示範囲を制限するために changeTimeScale 関数を修正
 function changeTimeScale(scale) {
@@ -507,14 +482,15 @@ function clearForm() {
 // スケジュールを保存
 function saveSchedule() {
     const schedule = items.get().map(item => ({
-        title: item.title,
-        content: item.content,
+        id: item.id || window.electron.generateUUID(),
+        title: item.title || '',
+        content: item.content || '',
         start: item.start,
         end: item.end,
-        group: item.group,
-        style: item.style
+        group: item.group || 0,
+        style: item.style || 'background-color: #4CAF50;'
     }));
-    window.electron.send('save_schedule', schedule);
+    window.electron.ipcRenderer.send('save_schedule', schedule);
 }
 
 // モーダルを表示する関数
@@ -1020,10 +996,20 @@ document.getElementById('addButton').addEventListener('click', function() {
         return;
     }
 
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c == 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+
     // スケジュールを追加
+    // renderer.js の修正箇所
     try {
+        const newId = window.electron.generateUUID();
         items.add({
-            id: Date.now(),
+            id: newId,
             content: title,
             start: startDateTime,
             end: endDateTime,
@@ -1184,11 +1170,8 @@ let calendarInstance = null;
 window.electron.ipcRenderer.send('get_schedule');
 
 // スケジュールの取得レスポンスを受信
-// renderer.js
-
 window.electron.ipcRenderer.receive('get_schedule_response', (data) => {
-    console.log('Received get_schedule_response:', data);
-    
+    console.log('Received get_schedule_response:', data); // デバッグ用
     if (!data) {
         console.error('Received undefined data');
         alert('スケジュールの取得に失敗しました。');
@@ -1206,7 +1189,7 @@ window.electron.ipcRenderer.receive('get_schedule_response', (data) => {
             console.error('Item missing "start" or "end" property:', item);
             return;
         }
-        
+
         items.add({
             id: item.id,
             content: item.content,
