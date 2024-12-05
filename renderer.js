@@ -76,12 +76,11 @@ function initTimeline() {
     };
 
 
-// vis.js の表示範囲を制限するために changeTimeScale 関数を修正
 function changeTimeScale(scale) {
     const calendarInput = document.getElementById('calendar');
     let selectedDate;
 
-    // 日付のバリデーション処理を追加
+    // 日付のバリデーション処理
     try {
         if (scale === 'week' && calendarInput.value) {
             const [year, week] = calendarInput.value.split('-W').map(Number);
@@ -553,6 +552,7 @@ function showEditModal() {
             dateFormat: "Y-m-d",
             locale: "ja",
         });
+    clearEditForm();
     }
     
     document.getElementById('edit-modal-overlay').style.display = 'block';
@@ -621,178 +621,74 @@ function setupEditModalListeners() {
     document.getElementById('editClearButton').addEventListener('click', clearEditForm);
     
     document.getElementById('updateButton').addEventListener('click', () => {
-        // デバッグ用のログ追加
-        console.log('編集前の値:', {
-            selectedItem: selectedItem,
-            currentStartDate: document.getElementById('editScheduleDate').value,
-            currentStartTime: document.getElementById('editStartTime').value,
-            currentEndDate: document.getElementById('editEndDate').value,
-            currentEndTime: document.getElementById('editEndTime').value,
-            currentTitle: document.getElementById('editTitle').value,
-            currentMemo: document.getElementById('editMemo').value,
-            currentLayer: document.getElementById('editGroup').value,
-            currentColor: document.getElementById('editColor').value,
-            flatpickrDates: document.getElementById('editDateRange')._flatpickr.selectedDates
-        });
-
-        // flatpickrの選択された日付を取得
-        const selectedDates = document.getElementById('editDateRange')._flatpickr.selectedDates;
-        if (selectedDates.length === 2) {
-            const startDate = selectedDates[0].toISOString().split('T')[0];
-            const endDate = selectedDates[1].toISOString().split('T')[0];
-            document.getElementById('editScheduleDate').value = startDate;
-            document.getElementById('editEndDate').value = endDate;
+        if (!selectedItem) {
+            console.error('No item selected for update');
+            return;
         }
-
-        const startDate = document.getElementById('editScheduleDate').value;
+    
+        // 入力値を取得
+        const selectedDates = document.getElementById('editDateRange')._flatpickr.selectedDates;
         const startTime = document.getElementById('editStartTime').value;
-        const endDate = document.getElementById('editEndDate').value;
         const endTime = document.getElementById('editEndTime').value;
         const title = document.getElementById('editTitle').value;
         const memo = document.getElementById('editMemo').value;
         const layer = parseInt(document.getElementById('editGroup').value, 10);
         const color = document.getElementById('editColor').value;
-
-        // デバッグ用のログ追加
-        console.log('バリデーション前の値:', {
-            startDate,
-            startTime,
-            endDate,
-            endTime,
-            title,
-            memo,
-            layer,
-            color
-        });
-
-        // 元の値と比較して変更があるかチェック
-        const hasChanges = 
-            startTime !== selectedItem.start.toTimeString().slice(0,5) ||
-            endTime !== selectedItem.end.toTimeString().slice(0,5) ||
-            title !== selectedItem.content ||
-            memo !== selectedItem.title ||                                          //要デバッグmemoとコンテンツは同義だが　titleとcontentが比較されるのはおかしい
-            layer !== selectedItem.group ||
-            color !== selectedItem.style.match(/background-color: (#[0-9a-fA-F]{6});/)[1];
-
-        // 変更がない場合はモーダルを閉じて終了
-        if (!hasChanges) {
-            hideEditModal();
+    
+        // バリデーション
+        if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {
+            document.getElementById('edit-error-message').textContent = '編集を適応するためには必須項目を入力してください';
+            document.getElementById('edit-error-message').style.display = 'block';
             return;
         }
-
-        let isValid = true;
-
-        // 必須項のバリデーション(必須事項があるかどうか)
-        //必須事項が書かれている場合none、書かれていない場合block
-        if (!startDate) {
-            const errorDateTime = document.getElementById('edit-error-date-time');
-            if (errorDateTime) {
-                errorDateTime.style.display = 'block';
-            }
-            isValid = false;
-        } else {
-            const errorDateTime = document.getElementById('edit-error-date-time');
-            if (errorDateTime) {
-                errorDateTime.style.display = 'none';
-            }
-        }
-
-        if (!startTime) {
-            const errorStartTime = document.getElementById('edit-error-start-time');
-            if (errorStartTime) {
-                errorStartTime.style.display = 'block';
-            }
-            isValid = false;
-        } else {
-            const errorStartTime = document.getElementById('edit-error-start-time');
-            if (errorStartTime) {
-                errorStartTime.style.display = 'none';
-            }
-        }
-
-        if (!endTime) {
-            const errorEndTime = document.getElementById('edit-error-end-time');
-            if (errorEndTime) {
-                errorEndTime.style.display = 'block';
-            }
-            isValid = false;
-        } else {
-            const errorEndTime = document.getElementById('edit-error-end-time');
-            if (errorEndTime) {
-                errorEndTime.style.display = 'none';
-            }
-        }
-
-        if (!title) {
-            const errorTitle = document.getElementById('edit-error-title');
-            if (errorTitle) {
-                errorTitle.style.display = 'block';
-            }
-            isValid = false;
-        } else {
-            const errorTitle = document.getElementById('edit-error-title');
-            if (errorTitle) {
-                errorTitle.style.display = 'none';
-            }
-        }
-
-        if (!memo) {
-            const errorMemo = document.getElementById('edit-error-memo');
-            if (errorMemo) {
-                errorMemo.style.display = 'block';
-            }
-            isValid = false;
-        } else {
-            const errorMemo = document.getElementById('edit-error-memo');
-            if (errorMemo) {
-                errorMemo.style.display = 'none';
-            }
-        }
-
-        if (!isValid) {
-            const errorMessage = document.getElementById('edit-error-message');
-            if (errorMessage) {
-                errorMessage.textContent = '必須事項を入力してください';
-                errorMessage.style.display = 'block';
-            }
-            return;
-        } else {
-            const errorMessage = document.getElementById('edit-error-message');
-            if (errorMessage) {
-                errorMessage.style.display = 'none';
-            }
-        }
-
-        const startDateTime = new Date(`${startDate}T${startTime}`);
-        const endDateTime = new Date(`${endDate}T${endTime}`);
-
-        if (startDateTime >= endDateTime) {
-            const errorMessage = document.getElementById('edit-error-message');
-            if (errorMessage) {
-                errorMessage.textContent = '開始時刻は終了時刻より前に設定してください';
-                errorMessage.style.display = 'block';
-            }
-            return;
-        } else {
-            const errorMessage = document.getElementById('edit-error-message');
-            if (errorMessage) {
-                errorMessage.style.display = 'none';
-            }
-        }
-
-        items.update({
+        
+    
+        const startDate = selectedDates[0];
+        const endDate = selectedDates[1];
+    
+        // 日付と時間を結合
+        const [startHours, startMinutes] = startTime.split(':');
+        const [endHours, endMinutes] = endTime.split(':');
+        
+        const startDateTime = new Date(startDate);
+        startDateTime.setHours(parseInt(startHours), parseInt(startMinutes), 0);
+        
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0);
+    
+        // 更新データを作成
+        const updatedItem = {
             id: selectedItem.id,
             content: title,
+            title: memo,
             start: startDateTime,
             end: endDateTime,
-            title: memo,
             group: layer,
             style: `background-color: ${color};`
-        });
-
+        };
+    
+        console.log('Updating item:', updatedItem); // デバッグログ
+    
+        // タイムラインのアイテムを更新
+        items.update(updatedItem);
+    
+        // データベースを更新
         saveSchedule();
-        clearEditForm();
+    
+        // モーダルを閉じる
         hideEditModal();
+        
+        // 更新完了メッセージ
+        console.log('スケジュールの更新完了');
+    });
+    
+    // スケジュール保存後のレスポンスハンドラーを追加
+    window.electron.ipcRenderer.on('save_schedule_response', (response) => {
+        if (response.success) {
+            console.log('Schedule saved successfully:', response.message);
+        } else {
+            console.error('Failed to save schedule:', response.error);
+        }
     });
 }
 
@@ -899,7 +795,7 @@ function setupEventListeners() {
     setupDeleteModalListeners();
     // モーダルクリックイベントの設定
     setupModalClickHandlers();
-    // 編集モーダルのイベン��リスナーを設定
+    // 編集モーダルのイベントリスナーを設定
     setupEditModalListeners();
     
     // タイムラインにダブルクリックイベントを追加
@@ -918,7 +814,7 @@ function setupEventListeners() {
             // レイヤー番号をフォームにセット
             document.getElementById('group').value = layerNumber;
 
-            // モーダルを表��
+            // モーダルを表示
             showModal();
         }
     });

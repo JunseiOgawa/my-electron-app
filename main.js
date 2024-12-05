@@ -176,14 +176,18 @@ ipcMain.on('get_schedule', async (event) => {
                         style: item.style || 'background-color: #4CAF50;'
                     };
 
+                    console.log('Processing schedule:', { id: item.id, ...scheduleData }); // デバッグログ追加
+
                     if (existingIds.has(item.id)) {
                         // 既存レコードの更新
+                        console.log('Updating existing schedule:', item.id);
                         await tx.schedule.update({
                             where: { id: item.id },
                             data: scheduleData
                         });
                     } else {
                         // 新規レコードの作成
+                        console.log('Creating new schedule');
                         await tx.schedule.create({
                             data: {
                                 id: item.id,
@@ -193,11 +197,12 @@ ipcMain.on('get_schedule', async (event) => {
                     }
                 }
 
-                // データベースに存在するが、送信データに含まれないレコードを削除
+                // 削除されたレコードの処理
                 const newIds = new Set(data.map(item => item.id));
                 const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
                 
                 if (idsToDelete.length > 0) {
+                    console.log('Deleting schedules:', idsToDelete);
                     await tx.schedule.deleteMany({
                         where: {
                             id: {
@@ -208,10 +213,17 @@ ipcMain.on('get_schedule', async (event) => {
                 }
             });
             
-            event.reply('save_schedule_response', { success: true });
+            console.log('Schedule update completed successfully');
+            event.reply('save_schedule_response', { 
+                success: true,
+                message: 'スケジュールが正常に更新されました'
+            });
         } catch (error) {
-            console.error('スケジュールの保存に失敗しました:', error);
-            event.reply('save_schedule_response', { error: error.message });
+            console.error('Schedule update failed:', error);
+            event.reply('save_schedule_response', { 
+                success: false, 
+                error: error.message
+            });
         }
     });
 
