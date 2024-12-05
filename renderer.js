@@ -1105,8 +1105,63 @@ function setupZoomSlider() {
 }
 
 function openChat() {
+    console.log('チャットドロワーを開きます');
     document.getElementById('chatDrawer').classList.add('open');
+    
+    // メモを読み込んで表示
+    window.electron.ipcRenderer.send('get_memos');
 }
+
+// メモ表示用のリスナーを修正
+window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
+    console.log('メモデータを受信:', response);
+    
+    const memoList = document.getElementById('memoList');
+    if (!memoList) {
+        console.error('memoList要素が見つかりません');
+        return;
+    }
+
+    if (response.success) {
+        // メモリストを更新
+        memoList.innerHTML = response.memos.map(memo => {
+            // 日付をフォーマット
+            const date = new Date(memo.createdAt);
+            const formattedDate = date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            return `
+                <div class="memo-item">
+                    <div class="memo-content">${memo.message}</div>
+                    <div class="memo-date">${formattedDate}</div>
+                </div>
+            `;
+        }).join('');
+
+        // 最新のメッセージが見えるようにスクロール
+        memoList.scrollTop = memoList.scrollHeight;
+        console.log('メモの表示を更新しました');
+    } else {
+        console.error('メモの取得に失敗:', response.error);
+    }
+});
+
+// 送信ボタンのイベントリスナーを修正
+document.getElementById('send-button').addEventListener('click', () => {
+    const chatInput = document.getElementById('chat-input');
+    const message = chatInput.value.trim();
+    
+    if (message) {
+        console.log('新しいメモを送信:', message);
+        window.electron.ipcRenderer.send('save_chat_memo', message);
+        chatInput.value = ''; // 入力フィールドをクリア
+    }
+});
 
 function closeChat() {
     document.getElementById('chatDrawer').classList.remove('open');
@@ -1280,25 +1335,65 @@ window.electron.ipcRenderer.on('save_memo_response', (response) => {
 });
 
 function loadMemos() {
-  window.electron.ipcRenderer.send('get_memos');
+    console.log('メモの読み込みを開始');
+    window.electron.ipcRenderer.send('get_memos');
 }
 
+// メモのレスポンスハンドラーを修正
 window.electron.ipcRenderer.on('get_memos_response', (response) => {
-  if (response.success) {
-    const memoList = document.getElementById('memoList');
-    memoList.innerHTML = response.memos
-      .map(memo => `
-        <div class="memo-item">
-          <p>${memo.message}</p>
-          <small>${new Date(memo.createdAt).toLocaleString()}</small>
-        </div>
-      `)
-      .join('');
-  }
+    console.log('メモデータを受信:', response);
+    if (response.success) {
+        const memoList = document.getElementById('memoList');
+        if (!memoList) {
+            console.error('memoList要素が見つかりません');
+            return;
+        }
+
+        // メモリストをクリアして新しいメモを表示
+        memoList.innerHTML = response.memos
+            .map(memo => {
+                const date = new Date(memo.createdAt);
+                return `
+                    <div class="memo-item">
+                        <p>${memo.message}</p>
+                        <small>${date.toLocaleString('ja-JP')}</small>
+                    </div>
+                `;
+            })
+            .join('');
+        console.log('メモの表示を更新しました');
+    } else {
+        console.error('メモの取得に失敗:', response.error);
+    }
 });
 
-// 初期ロード
-document.addEventListener('DOMContentLoaded', loadMemos);
+// 送信ボタンのイベントリスナーを修正
+document.getElementById('send-button').addEventListener('click', () => {
+    const chatInput = document.getElementById('chat-input');
+    const message = chatInput.value.trim();
+    
+    if (message) {
+        console.log('新しいメモを送信:', message);
+        window.electron.ipcRenderer.send('save_chat_memo', message);
+        chatInput.value = ''; // 入力フィールドをクリア
+    }
+});
+
+// DOMContentLoadedのイベントリスナーから初期化を削除
+document.addEventListener('DOMContentLoaded', () => {
+
+});
+
+function saveChatMemo() {
+  const memoText = document.getElementById('memoText').value.trim();
+  console.log('保存しようとしているメモ:', memoText);
+  if (!memoText) {
+    console.log('メモが空のため保存をスキップ');
+    return;
+  }
+  
+  window.electron.ipcRenderer.send('save_chat_memo', memoText);
+}
 
 // renderer.js
 
@@ -1341,7 +1436,7 @@ function loadPastChatMemos() {
 
 // メモを初期化して表示する関数　※jsのjoinで追加してる
 function initializeMemos() {
-    window.api.send('get_memos'); // メモを取得するリクエスト
+    window.api.send('get_memos');
 
     window.api.on('get_memos_response', (response) => {
         if (response.error) {
@@ -1349,19 +1444,48 @@ function initializeMemos() {
             return;
         }
 
-        const memoList = document.getElementById('memoList');
-        memoList.innerHTML = ''; // 既存のメモをクリア　ないとエラー
+        // メモリストの取得または作成
+        let memoList = document.getElementById('memoList');
+        if (!memoList) {
+            console.warn('memoList要素を作成します');
+            memoList = createMemoList();
+            if (!memoList) {
+                console.error('memoList要素の作成に失敗しました');
+                return;
+            }
+        }
 
-        response.memos.forEach(memo => {
-            const memoItem = document.createElement('div');
-            memoItem.classList.add('memo-item');
-            memoItem.textContent = memo.message;
-            memoList.appendChild(memoItem);
-        });
+        // メモの表示を更新
+        updateMemoList(memoList, response.memos);
     });
 }
 
-// 送���ボタンのイベントリスナーを追加
+function createMemoList() {
+    const memoList = document.createElement('div');
+    memoList.id = 'memoList';
+    
+    const chatModal = document.getElementById('chat-modal');
+    if (!chatModal) {
+        console.error('chat-modal要素が見つかりません');
+        return null;
+    }
+    
+    chatModal.appendChild(memoList);
+    return memoList;
+}
+
+function updateMemoList(memoList, memos) {
+    memoList.innerHTML = '';
+    memos.forEach(memo => {
+        const memoItem = document.createElement('div');
+        memoItem.classList.add('memo-item');
+        memoItem.textContent = memo.message;
+        memoList.appendChild(memoItem);
+    });
+    console.log(`${memos.length}件のメモを表示しました`);
+}
+
+// 送信ボタンのイベントリスナーを追加
 document.getElementById('send-button').addEventListener('click', () => {
     const chatInput = document.getElementById('chat-input').value.trim();
     if (chatInput) {

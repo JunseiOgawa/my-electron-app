@@ -244,20 +244,39 @@ ipcMain.on('get_schedule', async (event) => {
         }
     });
 
-    // メモ取得用
+    // メモ取得用ハンドラーを修正
     ipcMain.on('get_memos', async (event) => {
+        console.log('メモ取得リクエストを受信');
         try {
             const memos = await prisma.chatMemo.findMany({
-                orderBy: { createdAt: 'asc' } // 昇順に変更
+                orderBy: {
+                    createdAt: 'desc'
+                },
+                select: {
+                    id: true,
+                    message: true,
+                    createdAt: true
+                }
             });
-            event.reply('get_memos_response', { success: true, memos });
+            console.log(`${memos.length}件のメモを取得しました`);
+            event.reply('get_memos_response', { 
+                success: true, 
+                memos: memos.map(memo => ({
+                    ...memo,
+                    createdAt: memo.createdAt.toISOString()
+                }))
+            });
         } catch (error) {
-            event.reply('get_memos_response', { error: error.message });
+            console.error('メモ取得エラー:', error);
+            event.reply('get_memos_response', { 
+                success: false, 
+                error: error.message 
+            });
         }
     });
 
     ipcMain.on('save_chat_memo', async (event, memo) => {
-        console.log('IPC: save_chat_memo 受信:', memo); //デバッグ用
+        console.log('save_chat_memoイベントを受信。メモ内容:', memo);
         try {
             const newMemo = await prisma.chatMemo.create({
                 data: {
@@ -265,10 +284,17 @@ ipcMain.on('get_schedule', async (event) => {
                     createdAt: new Date()
                 }
             });
-            console.log('IPC: メモをデータベースに保存しました:', newMemo); //デバッグ用
+            console.log('新規メモを保存:', newMemo);
             event.reply('save_chat_memo_reply', { success: true, memo: newMemo });
+            
+            // 保存後に全メモを再取得
+            const allMemos = await prisma.chatMemo.findMany({
+                orderBy: { createdAt: 'desc' }
+            });
+            console.log('更新後の全メモ:', allMemos);
+            event.reply('get_memos_response', { success: true, memos: allMemos });
         } catch (error) {
-            console.error('IPC: メモの保存に失敗しました:', error); //デバッグ用
+            console.error('メモ保存エラー:', error);
             event.reply('save_chat_memo_reply', { 
                 success: false, 
                 error: error.message 
