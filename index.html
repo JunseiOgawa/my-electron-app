@@ -16,11 +16,9 @@
 </head>
 <body>
     <div class="container">
-        <!-- <div class="current-date" id="currentDate"></div>
-        <div class="current-month" id="currentMonth"></div> -->
         <div id="calendar-container">
             <div id="calendar-input-container">
-                <input type="text" id="calendar">
+                <input type="text" id="calendar" placeholder="移動先の日付を選択">
             </div>
             <button id="backToToday" class="backToTodayButton">今日に戻る</button>
             <div class="scale-buttons"> 
@@ -76,10 +74,12 @@
         <div class="input-group">
             <label>カラー:</label>
             <input type="color" id="color">
-        </div>
-        <div class="input-group">
             <label>レイヤー:</label>
             <input type="number" id="group" value="1">
+        </div>
+        <div class="input-group">
+            <label for="remind">リマインド:</label>
+            <input type="checkbox" id="remind">
         </div>
         <!-- モーダル内の適切な位置に追加 -->
         <input type="hidden" id="scheduleDate">
@@ -132,10 +132,12 @@
         <div class="input-group">
             <label>カラー:</label>
             <input type="color" id="editColor">
-        </div>
-        <div class="input-group">
             <label>レイヤー:</label>
             <input type="number" id="editGroup" value="1">
+        </div>
+        <div class="input-group">
+            <label for="editRemind">リマインド:</label>
+            <input type="checkbox" id="editRemind"> 
         </div>
         <input type="hidden" id="editScheduleDate">
         <input type="hidden" id="editEndDate">

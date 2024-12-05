@@ -187,11 +187,17 @@ body {
             grid-column: 1;
             grid-row: 5;
             text-align: center;
+            align-items: center;
+            gap: 10px;
         }
 
         #modal .input-group:nth-child(7) {
             grid-column: 2;
             grid-row: 5;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            overflow: visible;
         }
 
         #modal .button-group {
@@ -279,11 +285,18 @@ body {
     #edit-modal .input-group:nth-child(6) {
         grid-column: 1;
         grid-row: 5;
+        align-items: center;
+        gap: 10px;
     }
 
     #edit-modal .input-group:nth-child(7) {
         grid-column: 2;
         grid-row: 5;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        white-space: nowrap;
+        overflow: visible;
     }
 
     #edit-modal .button-group {

@@ -787,7 +787,7 @@ function setupEventListeners() {
     const settingsButton = document.getElementById('settingsButton');
     if (settingsButton) {
         settingsButton.addEventListener('click', () => {
-            window.electron.send('open-settings');
+            window.electron.ipcRenderer.send('open-settings');
         });
     }
 
