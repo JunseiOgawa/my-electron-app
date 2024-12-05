@@ -1,0 +1,599 @@
+body {
+            margin: 0;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr; /* 横3列 */
+            grid-template-rows: auto 1fr 1fr 1fr; /* 縦4行 */
+            gap: 15px;
+            height: 100vh;
+        }
+        .current-date {
+            text-align: right;
+            grid-column: 3; /* 3列目に配置 */
+        }
+        .current-month {
+            grid-column: 1; /* 1列目に配置 */
+        }
+        .input-panel {
+            grid-column: 1; /* 横に3列分広がる */
+            grid-row: 2; /* 2行目に配置 */
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        .timeline-container {
+            grid-column: 2 / span 3; /* 横に3列分広がる */
+            grid-row: 2 ; /* 3行目から4行目にまたがる */
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            position: relative;
+        }
+        .zoom-slider{
+            grid-column: 3;
+            grid-row: 3;
+        }
+        .timeline {
+            height: 100%;
+            width: 100%;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .add-button {
+            background: #4CAF50;
+            color: white;
+        }
+        .clear-button {
+            background: #f44336;
+            color: white;
+        }
+        #context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 0;
+            display: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            z-index: 1007;
+        }
+        .context-menu-item {
+            padding: 5px 20px;
+            cursor: pointer;
+        }
+        .context-menu-item:hover {
+            background: #f5f5f5;
+        }
+        /* モーダル内のスタイル調整 */
+        #modal .input-group {
+            margin-bottom: 15px;
+        }
+        #modal .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        /* モーダル表示時のオーバーレイ */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1006;
+        }
+        /* 削除確認モーダルのスタイル */
+        #delete-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1006;
+        }
+        #delete-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1006;
+        }
+        /* モーダルのスタイル */
+        #modal {
+            display: none; /* 初期状態を非表示に設定 */
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width:400px;
+            z-index: 1006;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(6, auto);
+            gap: 25px;
+        }
+
+        #modal .input-group {
+            margin-bottom: 0;
+        }
+
+        /* グリッドの位置指定 */
+        #modal .input-group:nth-child(1) {
+            grid-column: 1 / span 2;
+            grid-row: 1;
+        }
+
+        #modal .input-group:nth-child(2) {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #modal .input-group:nth-child(3) {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        #modal .input-group:nth-child(4) {
+            grid-column: 1 / span 2;
+            grid-row: 3;
+        }
+
+        #modal .input-group:nth-child(5) {
+            grid-column: 1 / span 2;
+            grid-row: 4;
+        }
+
+        #modal .input-group:nth-child(6) {
+            grid-column: 1;
+            grid-row: 5;
+            text-align: center;
+        }
+
+        #modal .input-group:nth-child(7) {
+            grid-column: 2;
+            grid-row: 5;
+        }
+
+        #modal .button-group {
+            grid-column: 1;
+            grid-row: 6;
+        }
+
+        #closeModalButton {
+            grid-column: 2;
+            grid-row: 6;
+        }
+
+    input[type="color"] {/* 高さを指定して正方形にする Z*/
+        width: 40px;
+        padding: 2px;
+        height: 40px; 
+        border: none;
+        cursor: pointer;
+    }   
+    .scale-buttons {
+        grid-column: 1;
+        grid-row: 3;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .scale-buttons button {
+        padding: 5px 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .scale-buttons button:hover {
+        background-color: #f0f0f0;
+    }
+    
+
+    /* 編集モーダルのz-indexを追加 */
+    #edit-modal-overlay {
+        z-index: 1006;
+    }
+
+    #edit-modal {
+        z-index: 1006;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(6, auto);
+        gap: 25px;
+    }
+
+    #edit-modal .input-group {
+        margin-bottom: 0;
+    }
+
+    /* グリッドの位置指定 */
+    #edit-modal .input-group:nth-child(1) {
+        grid-column: 1 / span 2;
+        grid-row: 1;
+    }
+
+    #edit-modal .input-group:nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    #edit-modal .input-group:nth-child(3) {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
+    #edit-modal .input-group:nth-child(4) {
+        grid-column: 1 / span 2;
+        grid-row: 3;
+    }
+
+    #edit-modal .input-group:nth-child(5) {
+        grid-column: 1 / span 2;
+        grid-row: 4;
+    }
+
+    #edit-modal .input-group:nth-child(6) {
+        grid-column: 1;
+        grid-row: 5;
+    }
+
+    #edit-modal .input-group:nth-child(7) {
+        grid-column: 2;
+        grid-row: 5;
+    }
+
+    #edit-modal .button-group {
+        grid-column: 1;
+        grid-row: 6;
+    }
+
+    #closeEditModalButton {
+        grid-column: 2;
+        grid-row: 6;
+    }
+
+    #modal-overlay {
+        z-index: 1006;
+    }
+
+    #modal {
+        z-index: 1006;
+    }
+
+    #delete-modal-overlay {
+        z-index: 1006;
+    }
+
+    #delete-modal {
+        z-index: 1006;
+    }
+    /* 編集モーダルのスタイル */
+    #edit-modal-overlay {
+        position: fixed; /* 画面全体を覆う */
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5); /* 半透明の背景 */
+        display: none; /* 初期状態は非表示 */
+        z-index: 1006;
+    }
+
+    #edit-modal {
+        position: fixed; /* 画面中央に固定 */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1006;
+        width: 400px;
+        display: none; /* 初期状態は非表示 */
+    }
+    /* カレンダー関連のスタイルを修正 */
+    #calendar-container {
+        position: relative;
+        grid-column: 1;
+        grid-row: 2;
+        padding: 3px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 180px; /* カレンダーの横幅を縮小 */
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column; /* 縦方向に要素を配置 */
+        align-items: center; /* 中央揃え */
+    }
+    .colormessage {
+        color: red;
+        display: none;
+        grid-column: 1 / span 2;
+        grid-row: 7;
+        text-align: center;
+    }
+    .edit-massage {
+        color: red;
+        display: none;
+        grid-column: 1 / span 2;
+        grid-row: 7;
+        text-align: center;
+    }
+    
+    /* flatpickrカレンダーのサイズ調整 */
+    .flatpickr-calendar {
+        position: absolute; 
+        margin-top: 3px;
+        width: 170px ; /* カレンダー本体の横幅を縮小 */
+        z-index: 1005; /* モーダルのz-indexが1003なので、それより高く */
+    }
+
+    /* カレンダーの内部要素の横幅調整 */
+    .flatpickr-months,
+    .flatpickr-weekdays,
+    .flatpickr-days {
+        width: 170px ;
+    }
+
+    .flatpickr-days {
+        width: 170px;
+    }
+
+    .dayContainer {
+        width: 170px;
+        min-width: 170px ;
+        max-width: 170px ;
+    }
+
+    /* 月の表示部分の調整 */
+    .flatpickr-current-month {
+        padding: 0;
+        font-size: 90%; 
+    }
+    .backToTodayButton {
+        display: block;
+        margin: 10px auto; /* 上下の余白と中央寄せ */
+        margin-top: 10px; /* 上部にスペースを追加 */
+    }
+
+    /* dateRange のコンテナスタイル調整 */
+    #dateRange {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    /* Flatpickr カレンダーの位置調整 */
+    .flatpickr-calendar {
+        z-index: 1005; /* 他の要素より前面に表示 */
+    }
+    /* flatpickrカレンダーの横幅を大きくする */
+    .flatpickr-calendar.rangeMode.animate.arrowTop.arrowLeft.open {
+        width: auto; /* 必要に応じて横幅を調整 */
+    }
+    /* モーダル内のカレンダーの横幅を大きくする */
+    .flatpickr-calendar.modal-calendar {
+        width: auto; /* 必要に応じて横幅を調整 */
+    }
+    .flatpickr-calendar.modal-calendar .flatpickr-days {
+        max-width: 100%; /* カレンダーの日付部分の横幅を調整 */
+    }
+    .scale-buttons {
+        margin-top: 10px; /* 上部にスペースを追加 */
+    }
+    /* chat-boxのスタイルを更新 */
+    .chat-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 50px;
+        height: 50px;
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 0 8px 0 0;  /* 右上角のみ丸める */
+        z-index: 1005;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .chat-button:hover {
+        background-color: #f0f0f0;
+    }
+
+    /* vis-timeline下部の角丸スタイルを追加 */
+    .vis-timeline.vis-bottom {
+        border-radius: 8px;  /* 左下と右下のみ角丸に */
+    }
+
+    .vis-panel.vis-bottom,
+    .vis-panel.vis-center,
+    .vis-panel.vis-left,
+    .vis-panel.vis-right {
+        border-radius: 8px;
+    }
+    /* チャットドロワーのスタイル */
+    .chat-drawer {
+        position: fixed;
+        top: 0;
+        right: -270px; /* 初期状態では非表示 */
+        width: 270px;
+        height: 100%;
+        background-color: white;
+        box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+        transition: right 0.3s ease;
+        z-index: 1008;
+    }
+
+    .chat-drawer.open {
+        right: 0;
+    }
+
+    .chat-content {
+        padding: 20px;
+    }
+
+    .chat-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        padding: 5px;
+        background: none;
+        border: none;
+        width: 25px;
+        height: 25px;
+    }
+    .memo-input {
+    padding: 10px;
+    border-top: 1px solid #ccc;
+    }
+
+    .memo-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    }
+
+    #memoList {
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+    /* notification スタイル */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 15px 25px;
+  border-radius: 5px;
+  color: #fff;
+  opacity: 0.9;
+  z-index: 1000;
+  transition: opacity 0.5s ease;
+}
+
+.notification.success {
+  background-color: #4CAF50;
+}
+
+.notification.error {
+  background-color: #f44336;
+}
+
+#error-message {
+    color: red; /* importantで優先 */
+    display: none;
+    grid-column: 1 / span 2;
+    grid-row: 7;
+    text-align: center;
+}
+#edit-error-message {
+    color: red; /* importantで優先 */
+    display: none;
+    grid-column: 1 / span 2;
+    grid-row: 7;
+    text-align: center;
+}
+
+/* チャットモーダルのスタイル修正 */
+#chat-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#memoList {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+#send-container {
+    display: flex;
+    gap: 10px;
+}
+
+/* チャットドロワーのヘッダー部分をフレックスコンテナに設定 */
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* 左右にスペースを均等に配置 */
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+}
+
+#chat-search {
+    flex: 1;
+    margin-right: 20px; 
+    margin-top: 5px;
+    min-width: 0; /* テキストの折り返しを防ぐ */
+}
+
+.chat-close {
+    flex-shrink: 0;
+    width: 25px; 
+    height: 25px; 
+}
+.clear-search-button {
+    position: absolute;
+    right: 10px;
+    top: 50%; 
+    transform: translateY(-50%);
+}
+
+/* モーダル内のflatpickrカレンダーのz-indexを調整 */
+.flatpickr-calendar.open {
+    z-index: 99999 !important;
+}

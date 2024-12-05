@@ -1,7 +1,7 @@
-// main.js の先頭部分
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 // UUIDの生成関数をmain.js内で直接定義
 function generateUUID() {
@@ -11,8 +11,6 @@ function generateUUID() {
         return v.toString(16);
     });
 }
-
-const prisma = new PrismaClient();
 
 let mainWindow;
 let settingsWindow = null;
@@ -229,6 +227,54 @@ ipcMain.on('get_schedule', async (event) => {
             event.reply('delete_schedule_response', { success: false, error: error.message });
         }
     });
+
+    // メモ保存用
+    ipcMain.on('save_memo', async (event, memoContent) => {
+        try {
+            const memo = await prisma.memo.create({
+                data: {
+                    message: memoContent,
+                    // createdAtはデフォルト値が設定されているため、省略可能
+                }
+            });
+            event.reply('save_memo_response', { success: true, memo });
+        } catch (error) {
+            console.error('メモの保存に失敗:', error);
+            event.reply('save_memo_response', { error: error.message });
+        }
+    });
+
+    // メモ取得用
+    ipcMain.on('get_memos', async (event) => {
+        try {
+            const memos = await prisma.chatMemo.findMany({
+                orderBy: { createdAt: 'asc' } // 昇順に変更
+            });
+            event.reply('get_memos_response', { success: true, memos });
+        } catch (error) {
+            event.reply('get_memos_response', { error: error.message });
+        }
+    });
+
+    ipcMain.on('save_chat_memo', async (event, memo) => {
+        console.log('IPC: save_chat_memo 受信:', memo); //デバッグ用
+        try {
+            const newMemo = await prisma.chatMemo.create({
+                data: {
+                    message: memo,
+                    createdAt: new Date()
+                }
+            });
+            console.log('IPC: メモをデータベースに保存しました:', newMemo); //デバッグ用
+            event.reply('save_chat_memo_reply', { success: true, memo: newMemo });
+        } catch (error) {
+            console.error('IPC: メモの保存に失敗しました:', error); //デバッグ用
+            event.reply('save_chat_memo_reply', { 
+                success: false, 
+                error: error.message 
+            });
+        }
+    });
 });
 
 app.on('window-all-closed', () => {
@@ -249,3 +295,5 @@ ipcMain.on('open-settings', () => {
         createSettingsWindow();
     }
 });
+
+console.log(prisma.memo); // ここでundefinedでないことを確認

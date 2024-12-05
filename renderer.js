@@ -497,6 +497,23 @@ function saveSchedule() {
 function showModal() {
     document.getElementById('modal-overlay').style.display = 'block';
     document.getElementById('modal').style.display = 'grid'; // display: grid に変更
+
+    // モーダル表示時にflatpickrを再初期化
+    if (document.getElementById('dateRange')) {
+        flatpickr("#dateRange", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            locale: "ja",
+            inline: false, // インラインモードをfalseに設定
+            onChange: function(selectedDates) {
+                if (selectedDates.length === 2) {
+                    const [start, end] = selectedDates;
+                    document.getElementById('scheduleDate').value = start.toISOString().split('T')[0];
+                    document.getElementById('endDate').value = end.toISOString().split('T')[0];
+                }
+            }
+        });
+    }
 }
 
 function hideModal() {
@@ -529,6 +546,15 @@ function setupModalClickHandlers() {
 
 // 編集モーダルを表示
 function showEditModal() {
+    // 編集モーダルの初期化
+    if (!document.getElementById('editDateRange')._flatpickr) {
+        flatpickr("#editDateRange", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            locale: "ja",
+        });
+    }
+    
     document.getElementById('edit-modal-overlay').style.display = 'block';
     document.getElementById('edit-modal').style.display = 'grid';
 }
@@ -568,10 +594,19 @@ function setEditFormValues(item) {
             document.getElementById('editColor').value = match[1];
         }
     }
+
+    // flatpickrインスタンスの初期化を確認
+    const editDatepicker = document.getElementById('editDateRange');
+    if (!editDatepicker._flatpickr) {
+        flatpickr(editDatepicker, {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            locale: "ja",
+        });
+    }
     
-    // flatpickrの日付範囲をセット
-    const editDatepicker = document.getElementById('editDateRange')._flatpickr;
-    editDatepicker.setDate([startDate, endDate]);
+    // 日付を設定
+    editDatepicker._flatpickr.setDate([startDate, endDate]);
 }
 
 function setupEditModalListeners() {
@@ -635,7 +670,7 @@ function setupEditModalListeners() {
             startTime !== selectedItem.start.toTimeString().slice(0,5) ||
             endTime !== selectedItem.end.toTimeString().slice(0,5) ||
             title !== selectedItem.content ||
-            memo !== selectedItem.title ||
+            memo !== selectedItem.title ||                                          //要デバッグmemoとコンテンツは同義だが　titleとcontentが比較されるのはおかしい
             layer !== selectedItem.group ||
             color !== selectedItem.style.match(/background-color: (#[0-9a-fA-F]{6});/)[1];
 
@@ -647,7 +682,8 @@ function setupEditModalListeners() {
 
         let isValid = true;
 
-        // 必須項のバリデーション
+        // 必須項のバリデーション(必須事項があるかどうか)
+        //必須事項が書かれている場合none、書かれていない場合block
         if (!startDate) {
             const errorDateTime = document.getElementById('edit-error-date-time');
             if (errorDateTime) {
@@ -762,22 +798,24 @@ function setupEditModalListeners() {
 
 // 初期化
 function initialize() {
-    console.log('initialize が開始されました');
+    console.log('initialize が開始されました');//デバッグ用
     initTimeline();
-    console.log('initTimeline を呼び出しました');
+    console.log('initTimeline を呼び出しました');//デバッグ用
     initContextMenu();
-    console.log('initContextMenu を呼び出しました');
+    console.log('initContextMenu を呼び出しました');//デバッグ用
     setupEventListeners();
-    console.log('setupEventListeners を呼び出しました');
+    console.log('setupEventListeners を呼び出しました');//デバッグ用
     setupZoomSlider();
-    console.log('setupZoomSlider を呼び出しました');
+    console.log('setupZoomSlider を呼び出しました');//デバッグ用
     setupTimeScaleButtons();
-    console.log('setupTimeScaleButtons を呼び出しました');
+    console.log('setupTimeScaleButtons を呼び出しました');//デバッグ用
 
     // 初期スケールを 'day' に設定してカレンダーを初期化
-    console.log('初期スケール "day" でカレンダーを初期化します');
+    console.log('初期スケール "day" でカレンダーを初期化します');//デバッグ用
     initializeCalendar('day');
-    console.log('initialize 関数が終了しました');
+    console.log('initialize 関数が終了しました');//デバッグ用
+    setupChatModal();
+    loadPastChatMemos();
 }
 
 // タイムライン上の右クリックイベント
@@ -861,7 +899,7 @@ function setupEventListeners() {
     setupDeleteModalListeners();
     // モーダルクリックイベントの設定
     setupModalClickHandlers();
-    // 編集モーダルのイベントリスナーを設定
+    // 編集モーダルのイベン��リスナーを設定
     setupEditModalListeners();
     
     // タイムラインにダブルクリックイベントを追加
@@ -880,7 +918,7 @@ function setupEventListeners() {
             // レイヤー番号をフォームにセット
             document.getElementById('group').value = layerNumber;
 
-            // モーダルを表示
+            // モーダルを表��
             showModal();
         }
     });
@@ -901,6 +939,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mode: "range",
         dateFormat: "Y-m-d",
         locale: "ja",
+        inline: false, // インラインモードをfalseに設定
         onChange: function(selectedDates) {
             if (selectedDates.length === 2) {
                 const [start, end] = selectedDates;
@@ -1170,23 +1209,21 @@ let calendarInstance = null;
 window.electron.ipcRenderer.send('get_schedule');
 
 // スケジュールの取得レスポンスを受信
-window.electron.ipcRenderer.receive('get_schedule_response', (data) => {
-    console.log('Received get_schedule_response:', data); // デバッグ用
+window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
     if (!data) {
         console.error('Received undefined data');
-        alert('スケジュールの取得に失敗しました。');
+        alert('スケジュールの取得に失敗しました。　このアラートが出た場合は再起動');
         return;
     }
 
     if (data.error) {
-        alert(`スケジュールの取得に失敗しました: ${data.error}`);
+        alert(`スケジュールの取得に失敗しました: ${data.error}　このアラートが出た場合は再起動`);
         return;
     }
 
     items.clear();
     data.forEach(item => {
         if (!item.start || !item.end) {
-            console.error('Item missing "start" or "end" property:', item);
             return;
         }
 
@@ -1202,12 +1239,144 @@ window.electron.ipcRenderer.receive('get_schedule_response', (data) => {
     });
 });
 
+// 過去のチャットメモを取得時のリスナー
+window.electron.ipcRenderer.on('get_memos_response', (event, { success, memos, error }) => {
+    if (success) {
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.innerHTML = ''; // 既存のチャットをクリア
+        memos.forEach(memo => {
+            const chatMessage = document.createElement('div');
+            chatMessage.classList.add('chat-message');
+            chatMessage.textContent = memo.message;
+            chatContainer.appendChild(chatMessage);
+        });
+    } else {
+        console.error('チャットメモの取得に失敗しました:', error);
+    }
+});
+
 window.electron.ipcRenderer.receive('save_schedule_response', (response) => {
     console.log('Received save_schedule_response:', response);
     if (response.success) {
-        alert('スケジュールが正常に保存されました。');
+        consolelog('スケジュールが正常に保存されました。');
         loadSchedules();
     } else {
-        alert(`スケジュールの保存に失敗しました: ${response.error}`);
+        consollog(`スケジュールの保存に失敗しました: ${response.error}`);
     }
+});
+
+function saveMemo() {
+  const message = document.getElementById('memoText').value;
+  if (!message.trim()) return;
+
+  window.electron.ipcRenderer.send('save_memo', message);
+  document.getElementById('memoText').value = '';
+}
+
+window.electron.ipcRenderer.on('save_memo_response', (response) => {
+  if (response.success) {
+    loadMemos();
+  }
+});
+
+function loadMemos() {
+  window.electron.ipcRenderer.send('get_memos');
+}
+
+window.electron.ipcRenderer.on('get_memos_response', (response) => {
+  if (response.success) {
+    const memoList = document.getElementById('memoList');
+    memoList.innerHTML = response.memos
+      .map(memo => `
+        <div class="memo-item">
+          <p>${memo.message}</p>
+          <small>${new Date(memo.createdAt).toLocaleString()}</small>
+        </div>
+      `)
+      .join('');
+  }
+});
+
+// 初期ロード
+document.addEventListener('DOMContentLoaded', loadMemos);
+
+// renderer.js
+
+function saveChatMemo() {
+    const memoText = document.getElementById('memoText').value.trim();
+    console.log('saveChatMemo: メモテキスト取得:', memoText); //デバッグ用
+    if (!memoText) {
+      console.log('saveChatMemo: メモテキストが空です'); //　デバッグ用
+      return;
+    }
+  
+    window.electron.ipcRenderer.send('save_chat_memo', memoText);
+    console.log('saveChatMemo: save_chat_memo イベントを送信'); // デバッグ用
+  }
+
+document.getElementById('clear-search-button').addEventListener('click', () => {
+    document.getElementById('chat-search').value = '';
+    // 必要に応じて検索結果のリセットなどを追加
+});
+
+// 初期化時に過去のチャットメモを読み込んで表示
+function loadPastChatMemos() {
+    // IPC通信で過去のチャットメモを取得
+    ipcRenderer.send('get_memos');
+    ipcRenderer.on('get_memos_response', (event, { success, memos, error }) => {
+        if (success) {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.innerHTML = ''; // 既存のチャットをクリア
+            memos.forEach(memo => {
+                const chatMessage = document.createElement('div');
+                chatMessage.classList.add('chat-message');
+                chatMessage.textContent = memo.message;
+                chatContainer.appendChild(chatMessage);
+            });
+        } else {
+            console.error('チャットメモの取得に失敗しました:', error);
+        }
+    });
+}
+
+// メモを初期化して表示する関数　※jsのjoinで追加してる
+function initializeMemos() {
+    window.api.send('get_memos'); // メモを取得するリクエスト
+
+    window.api.on('get_memos_response', (response) => {
+        if (response.error) {
+            console.error('メモの取得に失敗しました:', response.error);
+            return;
+        }
+
+        const memoList = document.getElementById('memoList');
+        memoList.innerHTML = ''; // 既存のメモをクリア　ないとエラー
+
+        response.memos.forEach(memo => {
+            const memoItem = document.createElement('div');
+            memoItem.classList.add('memo-item');
+            memoItem.textContent = memo.message;
+            memoList.appendChild(memoItem);
+        });
+    });
+}
+
+// 送���ボタンのイベントリスナーを追加
+document.getElementById('send-button').addEventListener('click', () => {
+    const chatInput = document.getElementById('chat-input').value.trim();
+    if (chatInput) {
+        window.api.send('save_chat_memo', chatInput);
+        document.getElementById('chat-input').value = ''; // 入力フィールドをクリア
+        initializeMemos(); // メモを再初期化
+    }
+});
+
+// クリア検索ボタンのイベントリスナーを追加
+document.getElementById('clear-search-button').addEventListener('click', () => {
+    document.getElementById('chat-search').value = '';
+});
+
+// メモを初期化
+document.addEventListener('DOMContentLoaded', () => {
+    initializeMemos();
 });

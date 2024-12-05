@@ -1,7 +1,8 @@
 {
-  "name": "my-app",
+  "name": "timeline-schedule-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "タイムラインでスケジュールを管理するアプリ",
+  "author": "OGAWA",
   "main": "main.js",
   "scripts": {
     "start": "electron-forge start",
@@ -9,7 +10,6 @@
     "package": "electron-forge package",
     "make": "electron-forge make"
   },
-  "author": "",
   "license": "ISC",
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",
@@ -22,17 +22,6 @@
     "@electron/fuses": "^1.8.0",
     "electron": "^33.2.1",
     "prisma": "^5.22.0"
-  },
-  "build": {
-    "appId": "com.your.app",
-    "win": {
-      "target": "nsis",
-      "icon": "build/icon_512x512.png"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "build/icon_512x512.png"
-    }
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

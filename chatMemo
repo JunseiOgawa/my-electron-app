@@ -1,0 +1,19 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": SQLite database "dev.db" at "file:./dev.db"
+
+Applying migration `20241203020305_change_memo`
+
+The following migration(s) have been created and applied from new schema changes:
+
+migrations/
+  └─ 20241203020305_change_memo/
+    └─ migration.sql
+
+Your database is now in sync with your schema.
+
+Running generate... (Use --skip-generate to skip the generators)
+[2K[1A[2K[GRunning generate... - Prisma Client
+[2K[1A[2K[G✔ Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 45ms
+
+
