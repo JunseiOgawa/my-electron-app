@@ -476,7 +476,8 @@ function clearForm() {
     document.getElementById('title').value = '';
     document.getElementById('memo').value = '';
     document.getElementById('group').value = '1';
-    document.getElementById('color').value = '#4CAF50'; 
+    document.getElementById('color').value = '#4CAF50';
+    document.getElementById('remind').checked = false;
 }
 // スケジュールを保存
 function saveSchedule() {
@@ -489,6 +490,7 @@ function saveSchedule() {
         group: item.group || 0,
         style: item.style || 'background-color: #4CAF50;'
     }));
+    console.log('Sending schedule to main process:', schedule); // 追加
     window.electron.ipcRenderer.send('save_schedule', schedule);
 }
 
@@ -575,6 +577,7 @@ function clearEditForm() {
     document.getElementById('editMemo').value = '';
     document.getElementById('editGroup').value = '1';
     document.getElementById('editColor').value = '#4CAF50';
+    document.getElementById('editRemind').checked = false;
 }
 
 // 編集フォームに値をセット
@@ -607,15 +610,20 @@ function setEditFormValues(item) {
     
     // 日付を設定
     editDatepicker._flatpickr.setDate([startDate, endDate]);
+    document.getElementById('editRemind').checked = item.remind || false; // リマインドの値を設定
 }
 
+//編集モーダルのイベントリスナー
+//編集モーダルのイベントリスナー
 function setupEditModalListeners() {
     const editModal = document.getElementById('edit-modal');
     
+    // モーダルでのバブリング防止
     editModal.addEventListener('click', (e) => {
         e.stopPropagation();
     });
     
+    // 各種ボタンのイベントリスナー設定
     document.getElementById('edit-modal-overlay').addEventListener('click', hideEditModal);
     document.getElementById('closeEditModalButton').addEventListener('click', hideEditModal);
     document.getElementById('editClearButton').addEventListener('click', clearEditForm);
@@ -625,8 +633,8 @@ function setupEditModalListeners() {
             console.error('No item selected for update');
             return;
         }
-    
-        // 入力値を取得
+
+        // 入力値を取得 
         const selectedDates = document.getElementById('editDateRange')._flatpickr.selectedDates;
         const startTime = document.getElementById('editStartTime').value;
         const endTime = document.getElementById('editEndTime').value;
@@ -634,6 +642,7 @@ function setupEditModalListeners() {
         const memo = document.getElementById('editMemo').value;
         const layer = parseInt(document.getElementById('editGroup').value, 10);
         const color = document.getElementById('editColor').value;
+        const remind = document.getElementById('editRemind').checked; // リマインド値の取得は更新時に行う
     
         // バリデーション
         if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {
@@ -664,7 +673,8 @@ function setupEditModalListeners() {
             start: startDateTime,
             end: endDateTime,
             group: layer,
-            style: `background-color: ${color};`
+            style: `background-color: ${color};`,
+            remind: remind // リマインドの値を更新
         };
     
         console.log('Updating item:', updatedItem); // デバッグログ
@@ -683,11 +693,13 @@ function setupEditModalListeners() {
     });
     
     // スケジュール保存後のレスポンスハンドラーを追加
-    window.electron.ipcRenderer.on('save_schedule_response', (response) => {
+    window.electron.ipcRenderer.on('save_schedule_response', (event, response) => {
+        console.log('Received save_schedule_response:', response); //デバッグ用
         if (response.success) {
-            console.log('Schedule saved successfully:', response.message);
+            loadSchedules();
+            console.log('スケジュールが正常に保存されました。');
         } else {
-            console.error('Failed to save schedule:', response.error);
+            console.log(`スケジュールの保存に失敗しました: ${response.error}`);
         }
     });
 }
@@ -1206,13 +1218,19 @@ window.electron.ipcRenderer.on('get_memos_response', (event, { success, memos, e
     }
 });
 
+
+
+function loadSchedules() {
+    window.electron.ipcRenderer.send('get_schedule');
+}
+
 window.electron.ipcRenderer.receive('save_schedule_response', (response) => {
     console.log('Received save_schedule_response:', response);
     if (response.success) {
-        consolelog('スケジュールが正常に保存されました。');
         loadSchedules();
+        console.log('スケジュールが正常に保存されました。');
     } else {
-        consollog(`スケジュールの保存に失敗しました: ${response.error}`);
+        console.log(`スケジュールの保存に失敗しました: ${response.error}`);
     }
 });
 
@@ -1245,7 +1263,7 @@ window.electron.ipcRenderer.on('get_memos_response', (response) => {
             return;
         }
 
-        // メモリストをクリアして新しいメモを表示
+        // メモリストをクリアして新しいメモ��表示
         memoList.innerHTML = response.memos
             .map(memo => {
                 const date = new Date(memo.createdAt);
@@ -1395,8 +1413,23 @@ document.getElementById('send-button').addEventListener('click', () => {
 document.getElementById('clear-search-button').addEventListener('click', () => {
     document.getElementById('chat-search').value = '';
 });
-
 // メモを初期化
 document.addEventListener('DOMContentLoaded', () => {
     initializeMemos();
+});
+
+// IPC レスポンスのハンドラー
+ipcRenderer.on('save_schedule_response', (event, response) => {
+    console.log('Received save_schedule_response:', response);
+    if (response) {
+        if (response.success) {
+            console.log('スケジュールが正常に保存されました');
+        } else {
+            console.error('Failed to save schedule:', response.error);
+            // 追加のログ
+            console.error('エラーメッセージ:', response.error);
+        }
+    } else {
+        console.error('save_schedule_response が未定義です');
+    }
 });

@@ -155,8 +155,8 @@ ipcMain.on('get_schedule', async (event) => {
     });
 
     // スケジュールを保存するIPCハンドラー
-    ipcMain.on('save_schedule', async (event, data) => {
-        console.log('Received save_schedule IPC with data:', data);
+    ipcMain.on('save_schedule', async (event,schedule) => {
+        console.log('Received schedule to save:', schedule); 
         try {
             await prisma.$transaction(async (tx) => {
                 // データベースの既存レコードを取得
@@ -173,7 +173,8 @@ ipcMain.on('get_schedule', async (event) => {
                         start: new Date(item.start),
                         end: new Date(item.end),
                         group: item.group || 1,
-                        style: item.style || 'background-color: #4CAF50;'
+                        style: item.style || 'background-color: #4CAF50;',
+                        remind: item.remind || false 
                     };
 
                     console.log('Processing schedule:', { id: item.id, ...scheduleData }); // デバッグログ追加
@@ -191,7 +192,7 @@ ipcMain.on('get_schedule', async (event) => {
                         await tx.schedule.create({
                             data: {
                                 id: item.id,
-                                ...scheduleData
+                                ...scheduleData//展開するときの省略記法
                             }
                         });
                     }
@@ -206,7 +207,7 @@ ipcMain.on('get_schedule', async (event) => {
                     await tx.schedule.deleteMany({
                         where: {
                             id: {
-                                in: idsToDelete
+                                in: idsToDelete//prismaクエリのin
                             }
                         }
                     });

@@ -14,13 +14,14 @@ generator client {
 }
 
 model Schedule {
-    id        String   @id
+    id        String   @id @default(cuid())
     title     String
     content   String
     start     DateTime
     end       DateTime
     group     Int      @default(1)
     style     String?
+    remind    Boolean  @default(false)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
