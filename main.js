@@ -1,7 +1,10 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, Menu, dialog, ipcMain, Notification} = require('electron');
+const path = require('path');//nodejsのpath 読み込み
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const NOTIFICATION_TITLE = 'Basic Notification'
+const NOTIFICATION_BODY = 'Notification from the Main process'
+
 
 // UUIDの生成関数をmain.js内で直接定義
 function generateUUID() {
@@ -335,4 +338,72 @@ ipcMain.on('open-settings', () => {
     }
 });
 
-console.log(prisma.memo); // ここでundefinedでないことを確認
+console.log(prisma.memo);
+
+// MACとwindowosの通知設定 macは一応
+class NotificationManager {
+  async sendPlatformNotification(title, content) {
+    if (process.platform === 'win32') {//windwos判別
+        new Notification({
+          title: title,
+          body: content,
+          icon: path.join(__dirname, 'icon.png')
+        }).show();
+    } else if (process.platform === 'darwin') {//Mac判別
+      new Notification({
+        title: title,
+        body: content,
+        subtitle: 'スケジュールリマインド',
+        icon: path.join(__dirname, 'icon.png'),
+        silent: false
+      }).show();
+    }
+      new Notification({
+        title: title,
+        body: content
+      }).show();
+    }
+  }
+
+// 共通のリマインドチェック
+async function checkReminders() {
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const upcomingSchedules = await prisma.schedule.findMany({
+        where: {
+          remind: true,
+          start: {
+            gte: now,
+            lte: new Date(now.getTime() + 15 * 60000)
+          },
+          notified: false // 通知済みフラグ
+        }
+      });
+
+      for (const schedule of upcomingSchedules) {
+        await NotificationManager.sendPlatformNotification(
+          'スケジュールリマインド',
+          `${schedule.title}\n${schedule.content}\n開始: ${schedule.start.toLocaleTimeString()}`
+        );
+
+        // 通知済みフラグを更新
+        await prisma.schedule.update({
+          where: { id: schedule.id },
+          data: { notified: true }
+        });
+      }
+    } catch (error) {
+      console.error('リマインドチェックエラー:', error);
+    }
+  }, 60000);
+}
+
+// アプリケーション起動時の初期化
+app.whenReady().then(() => {
+  if (!Notification.isSupported()) {
+    console.log('システム通知がサポートされていません');
+    return;
+  }
+  checkReminders();
+});

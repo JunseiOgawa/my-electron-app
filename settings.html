@@ -53,6 +53,10 @@
         .settings-container div {
             margin-bottom: 15px;
         }
+        .custom-remind-time {
+            display: none; 
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -68,6 +72,23 @@
             <label for="chat-retention">チャット機能の保持期間（日数）:</label>
             <input type="number" id="chat-retention" min="0" placeholder="0の場合無限に保存">
             </select>
+        </div>
+
+        <h2>リマインド設定</h2>
+        <div>
+            <label for="remind-interval">リマインド間隔（分）:</label>
+            <input type="number" id="remind-interval" min="1" placeholder="1">
+            <label for="remind-remind">リマインド前に通知:</label>
+            <label for="remind-enabled">リマインドを有効にする:</label>
+            <input type="checkbox" id="remind-enabled" name="remind-enabled">
+            <div id="remind-options" style="display: none; margin-top: 10px;">
+                <label>リマインド時間:</label>
+                <label><input type="radio" name="remind-time" value="5"> 5分前</label>
+                <label><input type="radio" name="remind-time" value="10"> 10分前</label>
+                <label><input type="radio" name="remind-time" value="30"> 30分前</label>
+                <label><input type="radio" name="remind-time" value="custom"> カスタム</label>
+                <input type="number" id="custom-remind-time" min="1" placeholder="分で入力">
+        </div>
         </div>
 
         <h2>表示設定</h2>
