@@ -488,9 +488,10 @@ function saveSchedule() {
         start: item.start,
         end: item.end,
         group: item.group || 0,
-        style: item.style || 'background-color: #4CAF50;'
+        style: item.style || 'background-color: #4CAF50;',
+        remind: item.remind || false  // remind値を追加
     }));
-    console.log('Sending schedule to main process:', schedule); // 追加
+    console.log('Sending schedule to main process:', schedule);
     window.electron.ipcRenderer.send('save_schedule', schedule);
 }
 
@@ -950,9 +951,6 @@ document.getElementById('addButton').addEventListener('click', function() {
           return v.toString(16);
         });
       }
-
-    // スケジュールを追加
-    // renderer.js の修正箇所
     try {
         const newId = window.electron.generateUUID();
         items.add({
@@ -984,7 +982,7 @@ function setupZoomSlider() {
         const currentWindow = timeline.getWindow();
         const center = new Date((currentWindow.start.getTime() + currentWindow.end.getTime()) / 2);
         
-        // スライダー値を0-100から0.1-10の範囲にマッピング
+        // スライダー値を0-100から0.1-10の範��にマッピング
         const zoomLevel = 0.1 + (value / 10);
         const range = 12 * 60 * 60 * 1000 / zoomLevel; // 基準範囲を調整
         
@@ -994,7 +992,7 @@ function setupZoomSlider() {
         timeline.setWindow(newStart, newEnd, {animation: false});
     });
 
-    // タイムラインのズーム変更時にスライダー更新
+    // タイムラインのズーム変更時にスラ���ダー更新
     timeline.on('rangechange', function(properties) {
         if (!properties.byUser) return; // ユーザーの操作以外は無視
         
@@ -1024,13 +1022,21 @@ function openChat() {
 window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
     console.log('メモデータを受信:', response);
     
-    const memoList = document.getElementById('memoList');
+    let memoList = document.getElementById('memoList');
     if (!memoList) {
-        console.error('memoList要素が見つかりません');
-        return;
+        console.log('memoList要素が存在しないため作成します');
+        const chatModal = document.getElementById('chat-modal');
+        if (chatModal) {
+            memoList = document.createElement('div');
+            memoList.id = 'memoList';
+            chatModal.insertBefore(memoList, chatModal.firstChild);
+        } else {
+            console.error('chat-modal要素が見つかりません');
+            return;
+        }
     }
 
-    if (response.success) {
+    if (response.success && memoList) {
         // メモリストを更新
         memoList.innerHTML = response.memos.map(memo => {
             // 日付をフォーマット
@@ -1206,7 +1212,7 @@ window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
 window.electron.ipcRenderer.on('get_memos_response', (event, { success, memos, error }) => {
     if (success) {
         const chatContainer = document.getElementById('chat-container');
-        chatContainer.innerHTML = ''; // 既存のチャットをクリア
+        chatContainer.innerHTML = '';
         memos.forEach(memo => {
             const chatMessage = document.createElement('div');
             chatMessage.classList.add('chat-message');
@@ -1308,8 +1314,6 @@ function saveChatMemo() {
   
   window.electron.ipcRenderer.send('save_chat_memo', memoText);
 }
-
-// renderer.js
 
 function saveChatMemo() {
     const memoText = document.getElementById('memoText').value.trim();
@@ -1433,3 +1437,157 @@ ipcRenderer.on('save_schedule_response', (event, response) => {
         console.error('save_schedule_response が未定義です');
     }
 });
+
+document.getElementById('updateButton').addEventListener('click', () => {
+    if (!selectedItem) {
+        console.error('No item selected for update');
+        return;
+    }
+
+    // 入力値を取得
+    const selectedDates = document.getElementById('editDateRange')._flatpickr.selectedDates;
+    const startTime = document.getElementById('editStartTime').value;
+    const endTime = document.getElementById('editEndTime').value;
+    const title = document.getElementById('editTitle').value;
+    const memo = document.getElementById('editMemo').value;
+    const layer = parseInt(document.getElementById('editGroup').value, 10);
+    const color = document.getElementById('editColor').value;
+    const remind = document.getElementById('editRemind').checked;
+
+    console.log('Remind value:', remind); // デバッグログ追加
+
+    // バリデーションと更新処理
+    if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {
+        document.getElementById('edit-error-message').textContent = '編集を適応するためには必須項目を入力してください';
+        document.getElementById('edit-error-message').style.display = 'block';
+        return;
+    }
+
+    const startDate = selectedDates[0];
+    const endDate = selectedDates[1];
+
+    // 日付と時間を結合
+    const [startHours, startMinutes] = startTime.split(':');
+    const [endHours, endMinutes] = endTime.split(':');
+    
+    const startDateTime = new Date(startDate);
+    startDateTime.setHours(parseInt(startHours), parseInt(startMinutes), 0);
+    
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0);
+
+    // 更新データを作成
+    const updatedItem = {
+        id: selectedItem.id,
+        content: title,
+        title: memo,
+        start: startDateTime,
+        end: endDateTime,
+        group: layer,
+        style: `background-color: ${color};`,
+        remind: remind
+    };
+
+    console.log('Updating item with remind:', updatedItem); // デバッグログ追加
+
+    // タイムラインのアイテムを更新
+    items.update(updatedItem);
+
+    // データベースを更新
+    saveSchedule();
+
+    // モーダルを閉じる
+    hideEditModal();
+});
+
+function updateScheduleItem(updatedItem) {
+    console.log('Updating timeline item:', updatedItem);
+    items.update({
+        ...updatedItem,
+        remind: updatedItem.remind // remind値を明示的に含める
+    });
+    saveSchedule();
+}
+
+// チャットモーダルの初期化関数を修正
+function setupChatModal() {
+    console.log('チャットモーダルを初期化します');
+    
+    // メモリストの初期化
+    if (!document.getElementById('memoList')) {
+        const chatModal = document.getElementById('chat-modal');
+        const memoList = document.createElement('div');
+        memoList.id = 'memoList';
+        chatModal.insertBefore(memoList, chatModal.firstChild);
+    }
+    
+    const sendButton = document.getElementById('send-button');
+    const chatInput = document.getElementById('chat-input');
+    
+    // 送信ボタンのイベントリスナー
+    if (sendButton && chatInput) {
+        sendButton.addEventListener('click', () => {
+            const message = chatInput.value.trim();
+            if (message) {
+                window.electron.ipcRenderer.send('save_chat_memo', message);
+                chatInput.value = '';
+            }
+        });
+
+        // エンターキーでの送信
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendButton.click();
+            }
+        });
+    }
+}
+
+// メモ表示用のリスナーを修正
+window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
+    console.log('メモデータを受信:', response);
+    
+    let memoList = document.getElementById('memoList');
+    if (!memoList) {
+        console.log('memoList要素が存在しないため作成します');
+        const chatModal = document.getElementById('chat-modal');
+        if (chatModal) {
+            memoList = document.createElement('div');
+            memoList.id = 'memoList';
+            chatModal.insertBefore(memoList, chatModal.firstChild);
+        } else {
+            console.error('chat-modal要素が見つかりません');
+            return;
+        }
+    }
+
+    if (response.success && memoList) {
+        // メモリストを更新
+        memoList.innerHTML = response.memos.map(memo => {
+            const date = new Date(memo.createdAt);
+            const formattedDate = date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            return `
+                <div class="memo-item">
+                    <div class="memo-content">${memo.message}</div>
+                    <div class="memo-date">${formattedDate}</div>
+                </div>
+            `;
+        }).join('');
+
+        // 最新のメッセージが見えるようにスクロール
+        memoList.scrollTop = memoList.scrollHeight;
+        console.log('メモの表示を更新しました');
+    } else {
+        console.error('メモの取得に失敗:', response.error);
+    }
+});
+
+// ...existing code...

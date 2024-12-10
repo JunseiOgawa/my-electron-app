@@ -150,20 +150,21 @@
             必須事項を入力してください
         </div>
     </div>
+    <!-- チャットドロワーの部分を修正 -->
     <div class="chat-drawer" id="chatDrawer">
         <div class="chat-header">
             <input type="text" id="chat-search" placeholder="検索...">
-            <button class="chat-close" onclick="closeChat()">×</button>
             <button id="clear-search-button">×</button>
+            <button class="chat-close" onclick="closeChat()">×</button>
         </div>
         <div id="chat-modal">
-        <div id="memoList"></div>
+            <div id="memoList"></div>
             <div id="send-container">
                 <input type="text" id="chat-input" placeholder="メッセージを入力...">
                 <button id="send-button">送信</button>
             </div>
         </div>
     </div>
-    <script src="renderer.js"></script>
+    <script src="../renderer/renderer.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ function createWindow() {
         width: 800,
         height: 700,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, '..', 'preload.js'), // パスを修正
             contextIsolation: true,
             devTools: !app.isPackaged,
             nodeIntegration: false,
@@ -32,7 +32,7 @@ function createWindow() {
         }
     });
 
-    mainWindow.loadFile('index.html');
+    mainWindow.loadFile(path.join(__dirname, '..', 'view', 'index.html')); // パスを修正
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
@@ -55,13 +55,13 @@ function createSettingsWindow() {
         title: '設定',
         autoHideMenuBar: true,
         webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(__dirname, '..', 'preload.js'),
             contextIsolation: true
         }
         
     } );
 
-    settingsWindow.loadFile('settings.html');
+    settingsWindow.loadFile(path.join(__dirname, '..', 'view', 'settings.html'));
 
     settingsWindow.on('closed', () => {
         settingsWindow = null;
@@ -83,7 +83,7 @@ function createMenu() {
             submenu: [
                 {
                     label: 'Open..',
-                    accelerator: 'CmdOrCtrl+O', // ショートカットキーを設定
+                    accelerator: 'CmdOrCtrl+O', // ショートカットキーを��定
                     click: () => { openFile() } // 実行される関数
                 },
                 {
@@ -124,7 +124,7 @@ function openFile() {
     });
 }
 
-// スケジュールを保存する関数
+// スケジュ���ルを保存する関数
 function saveSchedule() {
     if (mainWindow) {
         mainWindow.webContents.send('get_schedule');
@@ -136,7 +136,6 @@ app.on('ready', () => {
     createMenu();
 
     // スケジュールを取得するIPCハンドラー
-    // main.js
 ipcMain.on('get_schedule', async (event) => {
     try {
         const schedules = await prisma.schedule.findMany();
@@ -157,9 +156,9 @@ ipcMain.on('get_schedule', async (event) => {
         }
     });
 
-    // スケジュールを保存するIPCハンドラー
-    ipcMain.on('save_schedule', async (event,schedule) => {
-        console.log('Received schedule to save:', schedule); 
+    // スケジュールを保存するIPCハンドラーを修正
+    ipcMain.on('save_schedule', async (event, data) => {
+        console.log('Received schedule to save:', data); 
         try {
             await prisma.$transaction(async (tx) => {
                 // データベースの既存レコードを取得
@@ -170,6 +169,8 @@ ipcMain.on('get_schedule', async (event) => {
 
                 // 各スケジュールを処理
                 for (const item of data) {
+                    console.log('Processing schedule item:', item); // デバッグログ追加
+
                     const scheduleData = {
                         title: item.title || '',
                         content: item.content || '',
@@ -177,25 +178,24 @@ ipcMain.on('get_schedule', async (event) => {
                         end: new Date(item.end),
                         group: item.group || 1,
                         style: item.style || 'background-color: #4CAF50;',
-                        remind: item.remind || false 
+                        remind: item.remind || false, // remindのデフォルト値を設定
+                        notified: false // 通知済みフラグを初期化
                     };
 
-                    console.log('Processing schedule:', { id: item.id, ...scheduleData }); // デバッグログ追加
+                    console.log('Prepared schedule data:', scheduleData); // デバッグログ追加
 
                     if (existingIds.has(item.id)) {
-                        // 既存レコードの更新
-                        console.log('Updating existing schedule:', item.id);
+                        console.log(`Updating existing schedule with ID: ${item.id}`);
                         await tx.schedule.update({
                             where: { id: item.id },
                             data: scheduleData
                         });
                     } else {
-                        // 新規レコードの作成
                         console.log('Creating new schedule');
                         await tx.schedule.create({
                             data: {
                                 id: item.id,
-                                ...scheduleData//展開するときの省略記法
+                                ...scheduleData
                             }
                         });
                     }
@@ -206,18 +206,16 @@ ipcMain.on('get_schedule', async (event) => {
                 const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
                 
                 if (idsToDelete.length > 0) {
-                    console.log('Deleting schedules:', idsToDelete);
                     await tx.schedule.deleteMany({
                         where: {
                             id: {
-                                in: idsToDelete//prismaクエリのin
+                                in: idsToDelete
                             }
                         }
                     });
                 }
             });
             
-            console.log('Schedule update completed successfully');
             event.reply('save_schedule_response', { 
                 success: true,
                 message: 'スケジュールが正常に更新されました'
@@ -402,7 +400,7 @@ async function checkReminders() {
 // アプリケーション起動時の初期化
 app.whenReady().then(() => {
   if (!Notification.isSupported()) {
-    console.log('システム通知がサポートされていません');
+    console.log('通知がサポートされていません');
     return;
   }
   checkReminders();
