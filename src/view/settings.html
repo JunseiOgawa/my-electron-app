@@ -3,61 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>設定</title>
-    <style>
-        body {
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .settings-container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            margin: 0 auto;
-            max-width: 600px;
-        }
-        h1 {
-            color: #444;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        h2 {
-            color: #555;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            border-bottom: 2px solid #e0e0e0;
-            padding-bottom: 5px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-        }
-        input[type="checkbox"],
-        input[type="number"],
-        select {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        input[type="checkbox"] {
-            width: auto;
-            margin-right: 10px;
-        }
-        .settings-container div {
-            margin-bottom: 15px;
-        }
-        .custom-remind-time {
-            display: none; 
-            margin-top: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="settign.css">
 </head>
 <body>
     <div class="settings-container">
@@ -110,27 +56,6 @@
         
         
     </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // リマインド有効/無効の切り替え
-        const remindEnabled = document.getElementById('remind-enabled');
-        const remindSettings = document.getElementById('remind-settings');
-        
-        remindEnabled.addEventListener('change', function() {
-            remindSettings.style.display = this.checked ? 'block' : 'none';
-        });
-
-        // カスタム時間の表示/非表示
-        const remindTimeRadios = document.getElementsByName('remind-time');
-        const customTimeContainer = document.getElementById('custom-time-container');
-        
-        remindTimeRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                customTimeContainer.style.display = this.value === 'custom' ? 'block' : 'none';
-            });
-        });
-    });
-    </script>
+    <script src="../renderer/setting.js"></script>
 </body>
 </html>

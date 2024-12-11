@@ -161,7 +161,7 @@ ipcMain.on('get_schedule', async (event) => {
             start: schedule.start ? schedule.start.toISOString() : null,
             end: schedule.end ? schedule.end.toISOString() : null,
             group: schedule.group,
-            style: schedule.style
+            style: schedule.style,
         })).filter(item => item.start && item.end); // startとendが存在するもののみ
         event.reply('get_schedule_response', formattedSchedules);
         console.log('Sending get_schedule_response:', formattedSchedules);//デバッグログ用
