@@ -15,8 +15,8 @@
             padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
             margin: 0 auto;
+            max-width: 600px;
         }
         h1 {
             color: #444;
@@ -65,30 +65,36 @@
 
         <h2>ファイル設定</h2>
         <div>
-            <label for="reload-file">前回読み込んだファイルを再度読み込む:</label>
-            <input type="checkbox" id="reload-file" name="reload-file" value="enable">
+            <label for="reload-file">前回読み込んだファイルを再度読み込む:<input type="checkbox" id="reload-file" name="reload-file" value="enable"></label>
         </div>
         <div>
-            <label for="chat-retention">チャット機能の保持期間（日数）:</label>
-            <input type="number" id="chat-retention" min="0" placeholder="0の場合無限に保存">
+            <label for="chat-retention">チャット機能の保持期間（日数）:<input type="number" id="chat-retention" min="0" placeholder="0の場合無限に保存"></label>
             </select>
         </div>
 
         <h2>リマインド設定</h2>
         <div>
-            <label for="remind-interval">リマインド間隔（分）:</label>
-            <input type="number" id="remind-interval" min="1" placeholder="1">
-            <label for="remind-remind">リマインド前に通知:</label>
-            <label for="remind-enabled">リマインドを有効にする:</label>
-            <input type="checkbox" id="remind-enabled" name="remind-enabled">
-            <div id="remind-options" style="display: none; margin-top: 10px;">
-                <label>リマインド時間:</label>
-                <label><input type="radio" name="remind-time" value="5"> 5分前</label>
-                <label><input type="radio" name="remind-time" value="10"> 10分前</label>
-                <label><input type="radio" name="remind-time" value="30"> 30分前</label>
-                <label><input type="radio" name="remind-time" value="custom"> カスタム</label>
-                <input type="number" id="custom-remind-time" min="1" placeholder="分で入力">
-        </div>
+            <label for="remind-enabled">リマインドを有効にする:
+                <input type="checkbox" id="remind-enabled" name="remind-enabled">
+            </label>
+            <div id="remind-settings" style="display: none; margin-left: 20px; margin-top: 10px;">
+                <div>
+                    <label for="remind-interval">リマインド間隔（分）:
+                        <input type="number" id="remind-interval" min="1" placeholder="1">
+                    </label>
+                </div>
+                <div id="remind-options" style="margin-top: 10px;">
+                    <label>リマインド時間:</label><br>
+                    <label><input type="radio" name="remind-time" value="5"> 5分前</label><br>
+                    <label><input type="radio" name="remind-time" value="10"> 10分前</label><br>
+                    <label><input type="radio" name="remind-time" value="30"> 30分前</label><br>
+                    <label><input type="radio" name="remind-time" value="custom"> カスタム</label>
+                    <div id="custom-time-container" style="display: none; margin-left: 20px; margin-top: 5px;">
+                        <input type="number" id="custom-remind-time" min="1" placeholder="分で入力">
+                    </div>
+                    
+                </div>
+            </div>
         </div>
 
         <h2>表示設定</h2>
@@ -98,13 +104,33 @@
                 <option value="default">デフォルト</option>
                 <option value="dark">ダーク</option>
                 <option value="light">ライト</option>
-        </div>
-        <div>
-            <label for="load-weather">天気を読み込む:</label>
-            <input type="checkbox" id="load-weather" name="load-weather" value="enable">
+            </select>
+                <label for="load-weather">天気を読み込む:</label><input type="checkbox" id="load-weather" name="load-weather" value="enable">
         </div>
         
         
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // リマインド有効/無効の切り替え
+        const remindEnabled = document.getElementById('remind-enabled');
+        const remindSettings = document.getElementById('remind-settings');
+        
+        remindEnabled.addEventListener('change', function() {
+            remindSettings.style.display = this.checked ? 'block' : 'none';
+        });
+
+        // カスタム時間の表示/非表示
+        const remindTimeRadios = document.getElementsByName('remind-time');
+        const customTimeContainer = document.getElementById('custom-time-container');
+        
+        remindTimeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                customTimeContainer.style.display = this.value === 'custom' ? 'block' : 'none';
+            });
+        });
+    });
+    </script>
 </body>
 </html>

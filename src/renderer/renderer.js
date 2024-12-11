@@ -1589,5 +1589,3 @@ window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
         console.error('メモの取得に失敗:', response.error);
     }
 });
-
-// ...existing code...

@@ -1,10 +1,9 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, Notification} = require('electron');
 const path = require('path');//nodejsのpath 読み込み
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const NOTIFICATION_TITLE = 'Basic Notification'
-const NOTIFICATION_BODY = 'Notification from the Main process'
-
+const prisma = new PrismaClient(
+);
+app.setAppUserModelId('スケジュール管理ソフト');//通知で表示されるアプリ名前;
 
 // UUIDの生成関数をmain.js内で直接定義
 function generateUUID() {
@@ -32,7 +31,7 @@ function createWindow() {
         }
     });
 
-    mainWindow.loadFile(path.join(__dirname, '..', 'view', 'index.html')); // パスを修正
+    mainWindow.loadFile(path.join(__dirname, '..', 'view', 'index.html'));
 
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
@@ -56,12 +55,23 @@ function createSettingsWindow() {
         autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, '..', 'preload.js'),
-            contextIsolation: true
+            contextIsolation: true,
+            devTools: !app.isPackaged,
+            nodeIntegration: false,
+            enableRemoteModule: false,
+            allowRunningInsecureContent: false
         }
         
     } );
 
     settingsWindow.loadFile(path.join(__dirname, '..', 'view', 'settings.html'));
+
+    settingsWindow.once('ready-to-show', () => {
+        settingsWindow.show();
+        if (!app.isPackaged) {
+            settingsWindow.webContents.openDevTools();
+        }
+    });
 
     settingsWindow.on('closed', () => {
         settingsWindow = null;
@@ -123,8 +133,13 @@ function openFile() {
         console.error('Failed to open file:', err);
     });
 }
+app.whenReady().then(async () => {
+    await initializeDatabase();
+    createWindow();
+    createMenu();
+});
 
-// スケジュ���ルを保存する関数
+// スケジュールを保存する関数
 function saveSchedule() {
     if (mainWindow) {
         mainWindow.webContents.send('get_schedule');
@@ -339,6 +354,7 @@ ipcMain.on('open-settings', () => {
 console.log(prisma.memo);
 
 // MACとwindowosの通知設定 macは一応
+
 class NotificationManager {
   async sendPlatformNotification(title, content) {
     if (process.platform === 'win32') {//windwos判別
@@ -357,45 +373,46 @@ class NotificationManager {
       }).show();
     }
       new Notification({
-        title: title,
-        body: content
+        title: title,//1行目はタイトル
+        body: content//2行目は内容
       }).show();
     }
   }
 
 // 共通のリマインドチェック
+const notificationManager = new NotificationManager();
 async function checkReminders() {
-  setInterval(async () => {
-    try {
-      const now = new Date();
-      const upcomingSchedules = await prisma.schedule.findMany({
-        where: {
-          remind: true,
-          start: {
-            gte: now,
-            lte: new Date(now.getTime() + 15 * 60000)
-          },
-          notified: false // 通知済みフラグ
-        }
-      });
-
-      for (const schedule of upcomingSchedules) {
-        await NotificationManager.sendPlatformNotification(
-          'スケジュールリマインド',
-          `${schedule.title}\n${schedule.content}\n開始: ${schedule.start.toLocaleTimeString()}`
-        );
-
-        // 通知済みフラグを更新
-        await prisma.schedule.update({
-          where: { id: schedule.id },
-          data: { notified: true }
+    setInterval(async () => {
+      try {
+        const now = new Date();
+        const upcomingSchedules = await prisma.schedule.findMany({
+          where: {
+            remind: true,
+            start: {
+              gte: now,　//現在時刻以降のスケジュール
+              lte: new Date(now.getTime() + 15 * 60000)　//15分前に通知
+            },
+            notified: false
+          }
         });
+  
+        for (const schedule of upcomingSchedules) {
+          // インスタンスメソッドとして呼び出し
+          await notificationManager.sendPlatformNotification(
+            'スケジュールリマインド',
+            `${schedule.title}\n${schedule.content}\n開始: ${schedule.start.toLocaleTimeString()}`
+          );
+  
+          await prisma.schedule.update({
+            where: { id: schedule.id },
+            data: { notified: true }
+          });
+        }
+      } catch (error) {
+        console.error('リマインドチェックエラー:', error);
       }
-    } catch (error) {
-      console.error('リマインドチェックエラー:', error);
-    }
-  }, 60000);
-}
+    }, 60000);
+  }
 
 // アプリケーション起動時の初期化
 app.whenReady().then(() => {
@@ -404,4 +421,13 @@ app.whenReady().then(() => {
     return;
   }
   checkReminders();
+});
+
+//テストコード一時的デバッグ用　起動時に通知を送信
+app.whenReady().then(() => {
+    const notificationManager = new NotificationManager();
+    notificationManager.sendPlatformNotification(
+        'テスト通知',//1行目はタイトル
+        '【electron起動時】デバッグ用'//2行目は内容
+    );
 });
