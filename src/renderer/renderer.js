@@ -875,12 +875,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // スケジュールを保存
-window.electron.ipcRenderer.receive('get_schedule', () => {
+window.electron.ipcRenderer.on('get_schedule', () => {
     saveSchedule();
 });
 
 // Electronからのメッセージ受信
-window.electron.ipcRenderer.receive('open_file', (data) => {
+window.electron.ipcRenderer.on('open_file', (data) => {
     console.log('Received open_file data:', data); // デバッグ用
     items.clear();
     data.forEach(item => {
@@ -1181,7 +1181,7 @@ window.electron.ipcRenderer.send('get_schedule');
 window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
     if (!data) {
         console.error('Received undefined data');
-        alert('スケジュールの取得に失敗しました。　このアラートが出た場合は再起動');
+        alert('スケジュールの取得に失敗しまし���。　このアラートが出た場合は再起動');
         return;
     }
 
@@ -1230,7 +1230,7 @@ function loadSchedules() {
     window.electron.ipcRenderer.send('get_schedule');
 }
 
-window.electron.ipcRenderer.receive('save_schedule_response', (response) => {
+window.electron.ipcRenderer.on('save_schedule_response', (response) => {
     console.log('Received save_schedule_response:', response);
     if (response.success) {
         loadSchedules();
@@ -1255,11 +1255,11 @@ window.electron.ipcRenderer.on('save_memo_response', (response) => {
 });
 
 function loadMemos() {
-    console.log('メモの読み込みを開始');
+    console.log('���モの読み込みを開始');
     window.electron.ipcRenderer.send('get_memos');
 }
 
-// メモのレスポンスハンドラーを修正
+// メモ���レスポンスハンドラーを修正
 window.electron.ipcRenderer.on('get_memos_response', (response) => {
     console.log('メモデータを受信:', response);
     if (response.success) {
@@ -1587,5 +1587,37 @@ window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
         console.log('メモの表示を更新しました');
     } else {
         console.error('メモの取得に失敗:', response.error);
+    }
+});
+
+window.electron.ipcRenderer.on('get_memos_response', (event, { success, memos, error }) => {
+    if (success) {
+        console.log('Memos received:', memos);
+    } else {
+        console.error('Failed to get memos:', error);
+    }
+});
+
+window.electron.ipcRenderer.on('save_memos_response', (response) => {
+    if (response.success) {
+        console.log('Memos saved successfully');
+    } else {
+        console.error('Failed to save memos:', response.error);
+    }
+});
+
+window.electron.ipcRenderer.on('save_chat_memo_reply', (response) => {
+    if (response.success) {
+        console.log('Chat memo saved successfully');
+    } else {
+        console.error('Failed to save chat memo:', response.error);
+    }
+});
+
+window.electron.ipcRenderer.on('save_memo_response', (response) => {
+    if (response.success) {
+        console.log('Memo saved successfully');
+    } else {
+        console.error('Failed to save memo:', response.error);
     }
 });

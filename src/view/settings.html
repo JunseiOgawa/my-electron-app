@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>設定</title>
-    <link rel="stylesheet" href="settign.css">
+    <link rel="stylesheet" href="setting.css">
 </head>
 <body>
     <div class="settings-container">
@@ -45,16 +45,18 @@
 
         <h2>表示設定</h2>
         <div>
-            <label for="theme-color">テーマカラー:</label>
-            <select id="theme-color">
-                <option value="default">デフォルト</option>
-                <option value="dark">ダーク</option>
-                <option value="light">ライト</option>
+            <label for="theme">テーマカラー:</label>
+            <select id="theme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
             </select>
                 <label for="load-weather">天気を読み込む:</label><input type="checkbox" id="load-weather" name="load-weather" value="enable">
         </div>
         
         
+        <div>
+            <button id="apply-settings">設定を適用</button>
+        </div>
     </div>
     <script src="../renderer/setting.js"></script>
 </body>

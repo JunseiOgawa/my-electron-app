@@ -1,0 +1,9 @@
+{
+  "theme": "dark",
+  "reloadFile": false,
+  "chatRetentionDays": null,
+  "remindEnabled": true,
+  "remindInterval": 10,
+  "remindTime": "15",
+  "loadWeather": true
+}

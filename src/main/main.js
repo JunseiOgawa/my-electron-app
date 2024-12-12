@@ -1,8 +1,11 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, Notification} = require('electron');
-const path = require('path');//nodejsのpath 読み込み
+const { app, BrowserWindow, Menu, dialog, ipcMain, Notification } = require('electron');
+const path = require('path');//nodejsのpath 読み込み 先に読み込まないとエラー
+const fs = require('fs');
+
+const settingsPath = path.join(__dirname, '..', '..', 'config', 'settings.json');//設定ファイルのパス
+let settings = {};//設定ファイルの内容を格納する変数
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient(
-);
+const prisma = new PrismaClient();
 app.setAppUserModelId('スケジュール管理ソフト');//通知で表示されるアプリ名前;
 
 // UUIDの生成関数をmain.js内で直接定義
@@ -15,7 +18,7 @@ function generateUUID() {
 }
 
 let mainWindow;
-let settingsWindow = null;
+let settingsWindow = null;//設定ウィンドウ最初は非表示
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -134,9 +137,56 @@ function openFile() {
     });
 }
 app.whenReady().then(async () => {
-    await initializeDatabase();
     createWindow();
     createMenu();
+});
+
+ipcMain.on('update_remind_interval', (event, interval) => {
+    remindIntervalMinutes = interval;
+    console.log(`リマインド間隔が ${remindIntervalMinutes} 分に更新されました`);
+});
+//settings.jsonの読み込み関数
+function loadSettings() {
+    try {
+        const data = fs.readFileSync(settingsPath, 'utf-8');
+        return {
+            theme: settings.theme || 'dark',
+            language: settings.language || 'ja',
+            autoSaveInterval: settings.autoSaveInterval || 300,
+            loadWeather: settings.loadWeather || false,
+            chatRetentionDays: settings.chatRetentionDays || 30,
+        };
+    } catch (error) {
+        console.error('設定の読み込みに失敗しました:', error);
+        return {
+            theme: 'dark',
+            language: 'ja',
+            autoSaveInterval: 300,
+            loadWeather: false,
+            chatRetentionDays: 30,
+        };
+    }
+}
+
+// 設定の保存関数
+function saveSettings(settings) {
+    try {
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+        console.log('設定を保存しました:', settings);
+    } catch (error) {
+        console.error('設定の保存に失敗しました:', error);
+        throw error;
+    }
+}
+
+ipcMain.handle('save-settings', async (event, newSettings) => {
+    try {
+        saveSettings(newSettings);
+        return { success: true };
+    } catch (error) {
+        console.error('設定の保存に失敗しました:', error);
+        return { success: false, error: error.message };
+    }
 });
 
 // スケジュールを保存する関数
@@ -147,10 +197,7 @@ function saveSchedule() {
 }
 
 app.on('ready', () => {
-    createWindow();
-    createMenu();
-
-    // スケジュールを取得するIPCハンドラー
+// スケジュールを取得するIPCハンドラー
 ipcMain.on('get_schedule', async (event) => {
     try {
         const schedules = await prisma.schedule.findMany();
@@ -338,6 +385,11 @@ app.on('window-all-closed', () => {
     }
 });
 
+// IPCハンドラー設定を取得
+ipcMain.handle('get-settings', async () => {
+    return loadSettings();
+});
+
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
@@ -379,50 +431,57 @@ class NotificationManager {
     }
   }
 
+// リマインド有効/無効のデフォルト値
+let isRemindEnabled = true;
+
+// リマインド有効/無効の更新を受け取るIPCハンドラー
+ipcMain.on('update_remind_enabled', (event, enabled) => {
+    isRemindEnabled = enabled;
+    console.log(`リマインドが ${isRemindEnabled ? '有効' : '無効'} に設定`);
+});
+
 // 共通のリマインドチェック
 const notificationManager = new NotificationManager();
 async function checkReminders() {
     setInterval(async () => {
-      try {
-        const now = new Date();
-        const upcomingSchedules = await prisma.schedule.findMany({
-          where: {
-            remind: true,
-            start: {
-              gte: now,　//現在時刻以降のスケジュール
-              lte: new Date(now.getTime() + 15 * 60000)　//15分前に通知
-            },
-            notified: false
-          }
-        });
-  
-        for (const schedule of upcomingSchedules) {
-          // インスタンスメソッドとして呼び出し
-          await notificationManager.sendPlatformNotification(
-            'スケジュールリマインド',
-            `${schedule.title}\n${schedule.content}\n開始: ${schedule.start.toLocaleTimeString()}`
-          );
-  
-          await prisma.schedule.update({
-            where: { id: schedule.id },
-            data: { notified: true }
-          });
+        try {
+            const now = new Date();
+            const upcomingSchedules = await prisma.schedule.findMany({
+                where: {
+                    start: {
+                        gte: now,
+                        lte: new Date(now.getTime() + remindIntervalMinutes * 60000) // 設定された分数を使用
+                    },
+                    notified: false
+                },
+            });
+      
+            for (const schedule of upcomingSchedules) {
+                // インスタンスメソッドとして呼び出し
+                await notificationManager.sendPlatformNotification(
+                    'スケジュールリマインド',
+                    `予定: ${schedule.title} が${remindIntervalMinutes}分後に開始します。`
+                );
+
+                await prisma.schedule.update({
+                    where: { id: schedule.id },
+                    data: { notified: true }
+                });
+            }
+        } catch (error) {
+            console.error('リマインドチェックエラー:', error);
         }
-      } catch (error) {
-        console.error('リマインドチェックエラー:', error);
-      }
     }, 60000);
-  }
+}
 
 // アプリケーション起動時の初期化
 app.whenReady().then(() => {
-  if (!Notification.isSupported()) {
-    console.log('通知がサポートされていません');
-    return;
-  }
-  checkReminders();
+    if (!Notification.isSupported()) {
+        console.log('通知がサポートされていません');
+        return;
+    }
+    checkReminders();
 });
-
 //テストコード一時的デバッグ用　起動時に通知を送信
 app.whenReady().then(() => {
     const notificationManager = new NotificationManager();

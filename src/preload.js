@@ -18,9 +18,7 @@ contextBridge.exposeInMainWorld('electron', {
         on: (channel, func) => {
             ipcRenderer.on(channel, (event, ...args) => func(event, ...args));
         },
-        receive: (channel, func) => {
-            ipcRenderer.on(channel, (event, ...args) => func(...args));
-        }
+        invoke: (channel, data) => ipcRenderer.invoke(channel, data)//非同期用のivoke　setting用
     },
     // UUID生成関数を公開
     generateUUID: () => generateUUID()
