@@ -489,7 +489,7 @@ function saveSchedule() {
         end: item.end,
         group: item.group || 0,
         style: item.style || 'background-color: #4CAF50;',
-        remind: item.remind || false  // remind値を追加
+        remind: item.remind || false // remind値を追加
     }));
     console.log('Sending schedule to main process:', schedule);
     window.electron.ipcRenderer.send('save_schedule', schedule);
@@ -642,7 +642,7 @@ function setupEditModalListeners() {
     
     document.getElementById('updateButton').addEventListener('click', () => {
         if (!selectedItem) {
-            console.error('No item selected for update');
+            console.error('【renderer.js】アイテムが選択されていません');
             return;
         }
 
@@ -746,10 +746,12 @@ function setupEventListeners() {
     if (addButton) {
         addButton.addEventListener('click', function(event) {
             const dateRange = document.getElementById('dateRange');
+            const [startDateStr, endDateStr] = dateRange.split(' to ');//無いと1日ずれる
             const startTime = document.getElementById('startTime');
             const endTime = document.getElementById('endTime');
             const title = document.getElementById('title');
             const memo = document.getElementById('memo');
+            const remind = document.getElementById('remind').checked; // 追加
             const errorDateTime = document.getElementById('error-date-time');
             const errorTitle = document.getElementById('error-title');
             const errorMemo = document.getElementById('error-memo');
@@ -928,6 +930,18 @@ document.getElementById('addButton').addEventListener('click', function() {
     const memo = document.getElementById('memo').value;
     const group = parseInt(document.getElementById('group').value, 10);
     const color = document.getElementById('color').value;
+    const remind = document.getElementById('remind').checked;
+    
+    // 日付オブジェクトを作成して1日を加算
+    const adjustedStartDate = new Date(startDate);
+    adjustedStartDate.setDate(adjustedStartDate.getDate() + 1);
+
+    const adjustedEndDate = new Date(endDate);
+    adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+    
+    // 日付と時間を結合
+    const startDateTime = new Date(`${adjustedStartDate.toISOString().split('T')[0]}T${startTime}`);
+    const endDateTime = new Date(`${adjustedEndDate.toISOString().split('T')[0]}T${endTime}`);
 
     // デバッグ用
     console.log('モーダル日付追加時用入力データ:', {
@@ -935,6 +949,8 @@ document.getElementById('addButton').addEventListener('click', function() {
         endDate,
         startTime,
         endTime,
+        startDateTime,
+        endDateTime,
         title,
         memo,
         group,
@@ -946,10 +962,6 @@ document.getElementById('addButton').addEventListener('click', function() {
         document.getElementById('error-message').style.display = 'block';
         return;
     }
-
-    // 日付と時間
-    const startDateTime = new Date(`${startDate}T${startTime}`);
-    const endDateTime = new Date(`${endDate}T${endTime}`);
 
     // 開始時刻が終了時刻より前かチェック
     if (startDateTime >= endDateTime) {
@@ -973,7 +985,8 @@ document.getElementById('addButton').addEventListener('click', function() {
             end: endDateTime,
             title: memo,
             group: group,
-            style: `background-color: ${color};`
+            style: `background-color: ${color};`,
+            remind: remind
         });
         saveSchedule();
         clearForm();
@@ -1194,12 +1207,12 @@ window.electron.ipcRenderer.send('get_schedule');
 window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
     if (!data) {
         console.error('Received undefined data');
-        alert('スケジュールの取得に失敗しまし���。　このアラートが出た場合は再起動');
+        alert('【renderer.js】スケジュールの取得に失敗しました。　このアラートが出た場合は再起動');
         return;
     }
 
     if (data.error) {
-        alert(`スケジュールの取得に失敗しました: ${data.error}　このアラートが出た場合は再起動`);
+        alert(`【renderer.js】スケジュールの取得に失敗しました: ${data.error}　このアラートが出た場合は再起動`);
         return;
     }
 
@@ -1216,7 +1229,8 @@ window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
             end: new Date(item.end),
             title: item.title,
             group: parseInt(item.group, 10),
-            style: item.style || 'background-color: #4CAF50;'
+            style: item.style || 'background-color: #4CAF50;',
+            remind: item.remind || false
         });
     });
 });
