@@ -592,6 +592,18 @@ function setEditFormValues(item) {
     document.getElementById('editEndTime').value = endDate.toTimeString().slice(0,5);
     document.getElementById('editGroup').value = item.group;
     
+
+    const editRemindCheckbox = document.getElementById('editRemind');
+
+    if (editRemindCheckbox) {
+        editRemindCheckbox.checked = Boolean(item.remind);
+        console.log('【renderer.js】リマインド状態をセット:', item.remind); // デバッグ用
+
+        if (!item.remind) {
+            console.log('【renderer.js】チェックボックスにチェックが入っていません');
+        }
+    }
+
     if (item.style) {
         const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/);
         if (match) {
@@ -611,7 +623,6 @@ function setEditFormValues(item) {
     
     // 日付を設定
     editDatepicker._flatpickr.setDate([startDate, endDate]);
-    document.getElementById('editRemind').checked = item.remind || false; // リマインドの値を設定
 }
 
 //編集モーダルのイベントリスナー
@@ -675,7 +686,7 @@ function setupEditModalListeners() {
             end: endDateTime,
             group: layer,
             style: `background-color: ${color};`,
-            remind: remind // リマインドの値を更新
+            remind: remind 
         };
     
         console.log('Updating item:', updatedItem); // デバッグログ
@@ -685,6 +696,7 @@ function setupEditModalListeners() {
     
         // データベースを更新
         saveSchedule();
+        window.electron.ipcRenderer.send('update_schedule', updatedItem);
     
         // モーダルを閉じる
         hideEditModal();
@@ -790,6 +802,7 @@ function setupEventListeners() {
         
         if (item) {
             selectedItem = items.get(item); // selectedItem を設定
+            console.log('【renderer.js】選択されたアイテム:', selectedItem); // デバッグログ追加
             showContextMenu(props.event.pageX, props.event.pageY);
         } else {
             selectedItem = null;
@@ -1429,8 +1442,6 @@ ipcRenderer.on('save_schedule_response', (event, response) => {
         if (response.success) {
             console.log('スケジュールが正常に保存されました');
         } else {
-            console.error('Failed to save schedule:', response.error);
-            // 追加のログ
             console.error('エラーメッセージ:', response.error);
         }
     } else {
@@ -1453,8 +1464,7 @@ document.getElementById('updateButton').addEventListener('click', () => {
     const layer = parseInt(document.getElementById('editGroup').value, 10);
     const color = document.getElementById('editColor').value;
     const remind = document.getElementById('editRemind').checked;
-
-    console.log('Remind value:', remind); // デバッグログ追加
+    console.log('更新時のリマインド値:', remind); // デバッグログ
 
     // バリデーションと更新処理
     if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {

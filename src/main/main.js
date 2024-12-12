@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, Notification, nativeTheme} = require('electron');
 const path = require('path');//nodejsのpath 読み込み 先に読み込まないとエラー
 const fs = require('fs');
 
@@ -141,6 +141,16 @@ app.whenReady().then(async () => {
     createMenu();
 });
 
+//テーマ色の変更
+ipcMain.on('theme-change', (event, theme) => {
+    if (theme === 'dark') {
+        nativeTheme.themeSource = 'dark';
+    } else {
+        nativeTheme.themeSource = 'light';
+    }
+    console.log(`テーマを${theme}に変更しました`);
+});
+
 ipcMain.on('update_remind_interval', (event, interval) => {
     remindIntervalMinutes = interval;
     console.log(`リマインド間隔が ${remindIntervalMinutes} 分に更新されました`);
@@ -148,23 +158,24 @@ ipcMain.on('update_remind_interval', (event, interval) => {
 //settings.jsonの読み込み関数
 function loadSettings() {
     try {
-        const data = fs.readFileSync(settingsPath, 'utf-8');
-        return {
-            theme: settings.theme || 'dark',
-            language: settings.language || 'ja',
-            autoSaveInterval: settings.autoSaveInterval || 300,
-            loadWeather: settings.loadWeather || false,
-            chatRetentionDays: settings.chatRetentionDays || 30,
-        };
+        if (fs.existsSync(settingsPath)) {
+            const data = fs.readFileSync(settingsPath, 'utf-8');
+            settings = JSON.parse(data);
+        } else {
+            settings = {
+                theme: 'dark',
+                reloadFile: false,
+                chatRetentionDays: 30,
+                remindEnabled: false,
+                remindInterval: 15,
+                remindTime: '15',
+                loadWeather: false
+            };
+        }
+        return settings;
     } catch (error) {
         console.error('設定の読み込みに失敗しました:', error);
-        return {
-            theme: 'dark',
-            language: 'ja',
-            autoSaveInterval: 300,
-            loadWeather: false,
-            chatRetentionDays: 30,
-        };
+        return DEFAULT_SETTINGS;
     }
 }
 
@@ -189,6 +200,13 @@ ipcMain.handle('save-settings', async (event, newSettings) => {
     }
 });
 
+//適用時に設定ウィンドウを閉じる
+ipcMain.on('close-settings-window', () => {
+    if (settingsWindow) {
+        settingsWindow.close();
+    }
+});
+
 // スケジュールを保存する関数
 function saveSchedule() {
     if (mainWindow) {
@@ -201,7 +219,7 @@ app.on('ready', () => {
 ipcMain.on('get_schedule', async (event) => {
     try {
         const schedules = await prisma.schedule.findMany();
-        const formattedSchedules = schedules.map(schedule => ({//mapで配列の要素を変換する
+        const formattedSchedules = schedules.map(schedule => ({
             id: schedule.id.toString(),
             title: schedule.title,
             content: schedule.content,
@@ -209,14 +227,14 @@ ipcMain.on('get_schedule', async (event) => {
             end: schedule.end ? schedule.end.toISOString() : null,
             group: schedule.group,
             style: schedule.style,
-        })).filter(item => item.start && item.end); // startとendが存在するもののみ
+            remind: Boolean(schedule.remind)
+        }));
         event.reply('get_schedule_response', formattedSchedules);
-        console.log('Sending get_schedule_response:', formattedSchedules);//デバッグログ用
-        } catch (error) {
-            console.error('スケジュールの取得に失敗しました:', error);
-            event.reply('get_schedule_response', { error: error.message });
-        }
-    });
+    } catch (error) {
+        console.error('スケジュールの取得に失敗しました:', error);
+        event.reply('get_schedule_response', { error: error.message });
+    }
+});
 
     // スケジュールを保存するIPCハンドラーを修正
     ipcMain.on('save_schedule', async (event, data) => {
@@ -446,32 +464,53 @@ async function checkReminders() {
     setInterval(async () => {
         try {
             const now = new Date();
-            const upcomingSchedules = await prisma.schedule.findMany({
+            const remindSchedules = await prisma.schedule.findMany({
                 where: {
                     start: {
-                        gte: now,
-                        lte: new Date(now.getTime() + remindIntervalMinutes * 60000) // 設定された分数を使用
+                        gte: new Date(now.getTime() + 60000),
+                        lte: new Date(now.getTime() + (remindIntervalMinutes * 60000))
                     },
-                    notified: false
+                    notified: false,
+                    remind: true
                 },
             });
-      
-            for (const schedule of upcomingSchedules) {
-                // インスタンスメソッドとして呼び出し
+
+            // 同じ開始時刻のスケジュールをグループ化
+            const groupedSchedules = remindSchedules.reduce((acc, schedule) => {
+                const startTime = new Date(schedule.start).getTime();
+                if (!acc[startTime]) {
+                    acc[startTime] = [];
+                }
+                acc[startTime].push(schedule);
+                return acc;
+            }, {});
+
+            // グループごとに通知を送信
+            for (const [startTime, schedules] of Object.entries(groupedSchedules)) {
+                const titles = schedules.map(s => s.content).join(' と ');
+                const details = schedules.map(s => s.title).join('\n');
+                
                 await notificationManager.sendPlatformNotification(
                     'スケジュールリマインド',
-                    `予定: ${schedule.title} が${remindIntervalMinutes}分後に開始します。`
+                    `${titles}\n${details}\n${remindIntervalMinutes}分後に開始します`
                 );
 
-                await prisma.schedule.update({
-                    where: { id: schedule.id },
-                    data: { notified: true }
+                // 全てのスケジュールを通知済みに更新
+                await prisma.schedule.updateMany({
+                    where: {
+                        id: {
+                            in: schedules.map(s => s.id)
+                        }
+                    },
+                    data: { 
+                        notified: true
+                    }
                 });
             }
         } catch (error) {
             console.error('リマインドチェックエラー:', error);
         }
-    }, 60000);
+    }, 60000); // 1分ごとにチェック
 }
 
 // アプリケーション起動時の初期化

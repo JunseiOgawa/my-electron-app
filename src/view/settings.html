@@ -24,21 +24,17 @@
                 <input type="checkbox" id="remind-enabled" name="remind-enabled">
             </label>
             <div id="remind-settings" style="display: none; margin-left: 20px; margin-top: 10px;">
-                <div>
-                    <label for="remind-interval">リマインド間隔（分）:
-                        <input type="number" id="remind-interval" min="1" placeholder="1">
-                    </label>
-                </div>
+                
                 <div id="remind-options" style="margin-top: 10px;">
                     <label>リマインド時間:</label><br>
+                    <label><input type="radio" name="remind-time" value="0"> スケジュールと同時にリマインド</label><br>
                     <label><input type="radio" name="remind-time" value="5"> 5分前</label><br>
                     <label><input type="radio" name="remind-time" value="10"> 10分前</label><br>
                     <label><input type="radio" name="remind-time" value="30"> 30分前</label><br>
                     <label><input type="radio" name="remind-time" value="custom"> カスタム</label>
                     <div id="custom-time-container" style="display: none; margin-left: 20px; margin-top: 5px;">
-                        <input type="number" id="custom-remind-time" min="1" placeholder="分で入力">
-                    </div>
-                    
+                    <input type="number" id="custom-remind-time" min="1" placeholder="分で入力">
+                </div>
                 </div>
             </div>
         </div>
