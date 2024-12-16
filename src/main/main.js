@@ -490,9 +490,9 @@ async function checkReminders() {
                 const titles = schedules.map(s => s.content).join(' と ');
                 const details = schedules.map(s => s.title).join('\n');
                 
-                await notificationManager.sendPlatformNotification(
-                    'スケジュールリマインド',
-                    `${titles}\n${details}\n${remindIntervalMinutes}分後に開始します`
+                await notificationManager.sendPlatformNotification(//remind表示部分
+                    `${titles}`,
+                    `${remindIntervalMinutes}分後に\n${details}があります。`
                 );
 
                 // 全てのスケジュールを通知済みに更新
@@ -510,7 +510,7 @@ async function checkReminders() {
         } catch (error) {
             console.error('リマインドチェックエラー:', error);
         }
-    }, 60000); // 1分ごとにチェック
+    }, 20000); // 20秒ごとにチェック
 }
 
 // アプリケーション起動時の初期化
@@ -525,7 +525,7 @@ app.whenReady().then(() => {
 app.whenReady().then(() => {
     const notificationManager = new NotificationManager();
     notificationManager.sendPlatformNotification(
-        'テスト通知',//1行目はタイトル
+        '【electron起動時】デバッグ通知',//1行目はタイトル
         '【electron起動時】デバッグ用'//2行目は内容
     );
 });

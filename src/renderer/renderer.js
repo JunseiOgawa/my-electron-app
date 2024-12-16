@@ -35,6 +35,7 @@ function initTimeline() {
     console.log('initTimeline 関数が開始されました');//デバッグ用
     const container = document.getElementById('timeline');
     console.log('タイムラインコンテナを取得しました');//デバッグ用
+
     // items と groups を先に初期化
     items = new vis.DataSet();
     groups = new vis.DataSet([
@@ -58,9 +59,46 @@ function initTimeline() {
                 current: '現在',
                 time: '時間',
                 date: '日付',
-                // 必要に応じて他の翻訳を追加
             }
         },
+        editable: {
+            add: false,         // すでに作った追加機能があるため無効
+            updateTime: true,  // アイテムを時間方向に移動可
+            updateGroup: true, // アイテムをグループ間で移動可
+            remove: false,      // すでに作った削除機能があるため無効
+        },
+        onMove: function(item, callback) {
+            // 移動が完了したアイテムを取得
+            const movedItem = items.get(item.id);
+            if (!movedItem) {
+                console.error('Moved item not found:', item.id);
+                callback(null); // 移動をキャンセル
+                return;
+            }
+    
+            // 移動後のアイテムを更新
+            const updatedItem = {
+                id: movedItem.id,
+                content: movedItem.content,
+                title: movedItem.title,
+                start: item.start,  // 新しい開始時間
+                end: item.end,      // 新しい終了時間
+                group: item.group,  // 新しいグループ
+                style: movedItem.style,
+                remind: movedItem.remind
+            };
+    
+            // タイムライン上のアイテムを更新
+            items.update(updatedItem);
+    
+            // 保存処理を実行
+            console.log('Saving moved schedule:', updatedItem);
+            saveSchedule();
+    
+            // 移動を確定
+            callback(item);
+        },
+        
         zoomMin: 1000 * 60 * 15,  // 15分
         zoomMax: 1000 * 60 * 60 * 24 * 7 * 4,  // ひと月
     };
@@ -746,7 +784,7 @@ function setupEventListeners() {
     if (addButton) {
         addButton.addEventListener('click', function(event) {
             const dateRange = document.getElementById('dateRange');
-            const [startDateStr, endDateStr] = dateRange.split(' to ');//無いと1日ずれる
+            const [startDateStr, endDateStr] = dateRange.split(' to ');//無いと1��ずれる
             const startTime = document.getElementById('startTime');
             const endTime = document.getElementById('endTime');
             const title = document.getElementById('title');
@@ -811,6 +849,41 @@ function setupEventListeners() {
         }
     });
 
+    // タイムラインのアイテムを移動するとき処理
+    timeline.on('move', function(item, callback) {
+        callback(item);
+    
+        // 移動が完了したアイテムを取得
+        const movedItem = items.get(item.id);
+        if (!movedItem) {
+            console.error('Moved item not found:', item.id);
+            return;
+        }
+    
+        const updatedItem = {
+            id: movedItem.id,
+            content: movedItem.content,
+            title: movedItem.title,
+            start: item.start,  // 更新部分
+            end: item.end,      // 更新部分
+            group: movedItem.group,
+            style: movedItem.style,
+            remind: movedItem.remind
+        };
+    
+        // タイムライン上のアイテムを更新
+        items.update(updatedItem);
+    
+        // 遅延付きで保存処理を実行（移動中の連続保存を防ぐ）
+        if (window.saveTimeout) {
+            clearTimeout(window.saveTimeout);
+        }
+        window.saveTimeout = setTimeout(() => {
+            console.log('Saving moved schedule:', updatedItem);
+            saveSchedule();
+        }, 500); // 500ms後に保存
+    });
+
     // 設定ボタンのイベントリスナーを追加
     const settingsButton = document.getElementById('settingsButton');
     if (settingsButton) {
@@ -829,22 +902,17 @@ function setupEventListeners() {
     // タイムラインにダブルクリックイベントを追加
     timeline.on('doubleClick', function (properties) {
         if (properties.what === 'background') {
-            const canvasPosition = properties.event.canvas;
-            const item = items.get(properties.item);
-            const groupId = properties.group; // グループIDを取得
-
-            // グループIDが存在する場合、その番号を取得
+            const groupId = properties.group;
             let layerNumber = 1; // デフォルト値
             if (groupId !== null && groupId !== undefined) {
                 layerNumber = groupId;
             }
-
             // レイヤー番号をフォームにセット
             document.getElementById('group').value = layerNumber;
-
             // モーダルを表示
             showModal();
         }
+        // アイテム上でのダブルクリック時は何もしない 誤動作防止
     });
 }
 
@@ -1008,7 +1076,7 @@ function setupZoomSlider() {
         const currentWindow = timeline.getWindow();
         const center = new Date((currentWindow.start.getTime() + currentWindow.end.getTime()) / 2);
         
-        // スライダー値を0-100から0.1-10の範��にマッピング
+        // スライダー値を0-100から0.1-10の範囲にマッピング
         const zoomLevel = 0.1 + (value / 10);
         const range = 12 * 60 * 60 * 1000 / zoomLevel; // 基準範囲を調整
         
@@ -1282,11 +1350,11 @@ window.electron.ipcRenderer.on('save_memo_response', (response) => {
 });
 
 function loadMemos() {
-    console.log('���モの読み込みを開始');
+    console.log('メモの読み込みを開始');
     window.electron.ipcRenderer.send('get_memos');
 }
 
-// メモ���レスポンスハンドラーを修正
+// メモのレスポンスハンドラーを修正
 window.electron.ipcRenderer.on('get_memos_response', (response) => {
     console.log('メモデータを受信:', response);
     if (response.success) {
@@ -1645,3 +1713,5 @@ window.electron.ipcRenderer.on('save_memo_response', (response) => {
         console.error('Failed to save memo:', response.error);
     }
 });
+
+//最終
