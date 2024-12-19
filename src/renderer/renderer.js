@@ -85,7 +85,8 @@ function initTimeline() {
                 end: item.end,      // 新しい終了時間
                 group: item.group,  // 新しいグループ
                 style: movedItem.style,
-                remind: movedItem.remind
+                remind: movedItem.remind,
+                lock: movedItem.lock // lockプロパティを追加
             };
     
             // タイムライン上のアイテムを更新
@@ -472,6 +473,11 @@ function initContextMenu() {
 
     // コンテキストメニューの編集項目のイベントリスナーを追加
     document.getElementById('editItem').addEventListener('click', () => {
+        if (selectedItem && selectedItem.lock) {
+            alert('このスケジュールはロックされており、編集できません。');
+            hideContextMenu();
+            return;
+        }
         hideContextMenu();
         if (selectedItem) {
             setEditFormValues(selectedItem);
@@ -527,7 +533,8 @@ function saveSchedule() {
         end: item.end,
         group: item.group || 0,
         style: item.style || 'background-color: #4CAF50;',
-        remind: item.remind || false // remind値を追加
+        remind: item.remind || false, // remind値を追加
+        lock: item.lock || false // lockプロパティを追加
     }));
     console.log('Sending schedule to main process:', schedule);
     window.electron.ipcRenderer.send('save_schedule', schedule);
@@ -843,6 +850,12 @@ function setupEventListeners() {
         if (item) {
             selectedItem = items.get(item); // selectedItem を設定
             console.log('【renderer.js】選択されたアイテム:', selectedItem); // デバッグログ追加
+            const editItem = document.getElementById('editItem');
+            if (selectedItem.lock) {
+                editItem.classList.add('disabled');
+            } else {
+                editItem.classList.remove('disabled');
+            }
             showContextMenu(props.event.pageX, props.event.pageY);
         } else {
             selectedItem = null;
@@ -851,6 +864,11 @@ function setupEventListeners() {
 
     // タイムラインのアイテムを移動するとき処理
     timeline.on('move', function(item, callback) {
+        const scheduleItem = items.get(item.id);
+        if (scheduleItem && scheduleItem.lock) {
+            callback(null); // 移動をキャンセル
+            return;
+        }
         callback(item);
     
         // 移動が完了したアイテムを取得
@@ -868,7 +886,8 @@ function setupEventListeners() {
             end: item.end,      // 更新部分
             group: movedItem.group,
             style: movedItem.style,
-            remind: movedItem.remind
+            remind: movedItem.remind,
+            lock: movedItem.lock // lockプロパティを追加
         };
     
         // タイムライン上のアイテムを更新
@@ -901,6 +920,11 @@ function setupEventListeners() {
     
     // タイムラインにダブルクリックイベントを追加
     timeline.on('doubleClick', function (properties) {
+        const item = items.get(properties.item);
+        if (item && item.lock) {
+            alert('このスケジュールはロックされています。編集できません。');
+            return;
+        }
         if (properties.what === 'background') {
             const groupId = properties.group;
             let layerNumber = 1; // デフォルト値
@@ -1298,7 +1322,8 @@ window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
             title: item.title,
             group: parseInt(item.group, 10),
             style: item.style || 'background-color: #4CAF50;',
-            remind: item.remind || false
+            remind: item.remind || false,
+            lock: item.lock || false // lockプロパティを追加
         });
     });
 });
@@ -1383,122 +1408,6 @@ window.electron.ipcRenderer.on('get_memos_response', (response) => {
 });
 
 // 送信ボタンのイベントリスナーを修正
-document.getElementById('send-button').addEventListener('click', () => {
-    const chatInput = document.getElementById('chat-input');
-    const message = chatInput.value.trim();
-    
-    if (message) {
-        console.log('新しいメモを送信:', message);
-        window.electron.ipcRenderer.send('save_chat_memo', message);
-        chatInput.value = ''; // 入力フィールドをクリア
-    }
-});
-
-// DOMContentLoadedのイベントリスナーから初期化を削除
-document.addEventListener('DOMContentLoaded', () => {
-
-});
-
-function saveChatMemo() {
-  const memoText = document.getElementById('memoText').value.trim();
-  console.log('保存しようとしているメモ:', memoText);
-  if (!memoText) {
-    console.log('メモが空のため保存をスキップ');
-    return;
-  }
-  
-  window.electron.ipcRenderer.send('save_chat_memo', memoText);
-}
-
-function saveChatMemo() {
-    const memoText = document.getElementById('memoText').value.trim();
-    console.log('saveChatMemo: メモテキスト取得:', memoText); //デバッグ用
-    if (!memoText) {
-      console.log('saveChatMemo: メモテキストが空です'); //　デバッグ用
-      return;
-    }
-  
-    window.electron.ipcRenderer.send('save_chat_memo', memoText);
-    console.log('saveChatMemo: save_chat_memo イベントを送信'); // デバッグ用
-  }
-
-document.getElementById('clear-search-button').addEventListener('click', () => {
-    document.getElementById('chat-search').value = '';
-    // 必要に応じて検索結果のリセットなどを追加
-});
-
-// 初期化時に過去のチャットメモを読み込んで表示
-function loadPastChatMemos() {
-    // IPC通信で過去のチャットメモを取得
-    ipcRenderer.send('get_memos');
-    ipcRenderer.on('get_memos_response', (event, { success, memos, error }) => {
-        if (success) {
-            const chatContainer = document.getElementById('chat-container');
-            chatContainer.innerHTML = ''; // 既存のチャットをクリア
-            memos.forEach(memo => {
-                const chatMessage = document.createElement('div');
-                chatMessage.classList.add('chat-message');
-                chatMessage.textContent = memo.message;
-                chatContainer.appendChild(chatMessage);
-            });
-        } else {
-            console.error('チャットメモの取得に失敗しました:', error);
-        }
-    });
-}
-
-// メモを初期化して表示する関数　※jsのjoinで追加してる
-function initializeMemos() {
-    window.api.send('get_memos');
-
-    window.api.on('get_memos_response', (response) => {
-        if (response.error) {
-            console.error('メモの取得に失敗しました:', response.error);
-            return;
-        }
-
-        // メモリストの取得または作成
-        let memoList = document.getElementById('memoList');
-        if (!memoList) {
-            console.warn('memoList要素を作成します');
-            memoList = createMemoList();
-            if (!memoList) {
-                console.error('memoList要素の作成に失敗しました');
-                return;
-            }
-        }
-
-        // メモの表示を更新
-        updateMemoList(memoList, response.memos);
-    });
-}
-
-function createMemoList() {
-    const memoList = document.createElement('div');
-    memoList.id = 'memoList';
-    
-    const chatModal = document.getElementById('chat-modal');
-    if (!chatModal) {
-        console.error('chat-modal要素が見つかりません');
-        return null;
-    }
-    
-    chatModal.appendChild(memoList);
-    return memoList;
-}
-
-function updateMemoList(memoList, memos) {
-    memoList.innerHTML = '';
-    memos.forEach(memo => {
-        const memoItem = document.createElement('div');
-        memoItem.classList.add('memo-item');
-        memoItem.textContent = memo.message;
-        memoList.appendChild(memoItem);
-    });
-    console.log(`${memos.length}件のメモを表示しました`);
-}
-
-// 送信ボタンのイベントリスナーを追加
 document.getElementById('send-button').addEventListener('click', () => {
     const chatInput = document.getElementById('chat-input').value.trim();
     if (chatInput) {
@@ -1714,4 +1623,145 @@ window.electron.ipcRenderer.on('save_memo_response', (response) => {
     }
 });
 
+// ロックアイテムのイベントリスナーを追加
+document.getElementById('lockItem').addEventListener('click', () => {
+    if (selectedItem) {
+        const updatedItem = {
+            ...selectedItem,
+            lock: !selectedItem.lock
+        };
+        items.update(updatedItem);
+        saveSchedule();
+        hideContextMenu();
+    }
+});
+
+// スケジュールアイテムのロック状態をトグルする関数を追加
+function toggleLock(itemId) {
+    const item = items.get(itemId);
+    if (item) {
+        item.lock = !item.lock;
+        items.update(item);
+        saveSchedule();
+    }
+}
+
+// コンテキストメニューのロック項目のイベントリスナーを修正
+document.getElementById('lockItem').addEventListener('click', () => {
+    if (selectedItem) {
+        toggleLock(selectedItem.id);
+        hideContextMenu();
+    }
+});
+
+// スケジュールアイテムの生成時にlockプロパティを含める
+function createScheduleItem(data) {
+    return {
+        id: data.id || window.electron.generateUUID(),
+        title: data.title || '',
+        content: data.content || '',
+        start: data.start,
+        end: data.end,
+        group: data.group || 1,
+        style: data.style || 'background-color: #4CAF50;',
+        remind: data.remind || false,
+        lock: data.lock || false // lockプロパティを追加
+    };
+}
+
+// タイムラインの移動イベントを制御
+timeline.on('move', function(item, callback) {
+    const scheduleItem = items.get(item.id);
+    if (scheduleItem && scheduleItem.lock) {
+        callback(null); // 移動をキャンセル
+        return;
+    }
+    // ...existing code...
+});
+
+// 編集モーダル表示時のチェックを追加
+document.getElementById('editItem').addEventListener('click', () => {
+    if (selectedItem && selectedItem.lock) {
+        return; // ロックされている場合は編集モーダルを表示しない
+    }
+    // ...existing code...
+});
+
+// コンテキストメニュー表示時の制御を追加
+timeline.on('contextmenu', (props) => {
+    if (item) {
+        selectedItem = items.get(item);
+        const editItem = document.getElementById('editItem');
+
+        if (selectedItem.lock) {
+            editItem.classList.add('disabled');
+        } else {
+            editItem.classList.remove('disabled');
+        }
+        showContextMenu(props.event.pageX, props.event.pageY);
+    }
+    
+});
+//最終
+// 設定の取得とロック機能の適用
+window.electron.ipcRenderer.invoke('get-settings').then(settings => {
+    if (settings.enableLock) {
+        // ロック機能を有効化
+        document.getElementById('lockItem').style.display = 'block';
+    } else {
+        // ロック機能を無効化
+        document.getElementById('lockItem').style.display = 'none';
+    }
+});
+
+// スケジュールの作成時に設定に基づきlockプロパティを初期化
+function createScheduleItem(data) {
+    return {
+        id: data.id || window.electron.generateUUID(),
+        title: data.title || '',
+        content: data.content || '',
+        start: data.start,
+        end: data.end,
+        group: data.group || 1,
+        style: data.style || 'background-color: #4CAF50;',
+        remind: data.remind || false,
+        lock: settings.enableLock ? (data.lock || false) : false // 設定に基づきlockを設定
+    };
+}
+//最終
+// 設定が変更された際にロック機能を適用/解除
+ipcRenderer.on('settings_updated', (event, newSettings) => {
+    if (newSettings.enableLock) {
+        document.getElementById('lockItem').style.display = 'block';
+    } else {
+        document.getElementById('lockItem').style.display = 'none';
+        // すべてのロック状態を解除
+        items.forEach(item => {
+            if (item.lock) {
+                toggleLock(item.id);
+            }
+        });
+    }
+});
+//最終
+// スケジュール項目を表示する際にロック状態に応じてクラスを追加
+function displayScheduleItem(item) {
+    const element = document.getElementById(item.id);
+    if (item.lock) {
+        element.classList.add('locked-item');
+    } else {
+        element.classList.remove('locked-item');
+    }
+    // ...existing display logic...
+}
+
+// スケジュールのロード時にロック状態を反映
+window.electron.ipcRenderer.on('open_file', (data) => {
+    items.clear();
+    data.forEach(item => {
+        items.add(item);
+        displayScheduleItem(item);
+    });
+    timeline.setItems(items);
+});
 //最終

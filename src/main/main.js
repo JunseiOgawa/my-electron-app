@@ -348,28 +348,15 @@ ipcMain.on('get_schedule', async (event) => {
         console.log('Received schedule to save:', data); 
         try {
             await prisma.$transaction(async (tx) => {
-                // データベースの既存レコードを取得
                 const existingSchedules = await tx.schedule.findMany({
                     select: { id: true }
                 });
                 const existingIds = new Set(existingSchedules.map(s => s.id));
 
-                // 各スケジュールを処理
                 for (const item of data) {
-                    console.log('Processing schedule item:', item); // デバッグログ追加
+                    console.log('Processing schedule item:', item);
 
-                    const scheduleData = {
-                        title: item.title || '',
-                        content: item.content || '',
-                        start: new Date(item.start),
-                        end: new Date(item.end),
-                        group: item.group || 1,
-                        style: item.style || 'background-color: #4CAF50;',
-                        remind: item.remind || false, // remindのデフォルト値を設定
-                        notified: false // 通知済みフラグを初期化
-                    };
-
-                    console.log('Prepared schedule data:', scheduleData); // デバッグログ追加
+                    const scheduleData = save_schedule_handler(tx, item);
 
                     if (existingIds.has(item.id)) {
                         console.log(`Updating existing schedule with ID: ${item.id}`);
@@ -388,7 +375,6 @@ ipcMain.on('get_schedule', async (event) => {
                     }
                 }
 
-                // 削除されたレコードの処理
                 const newIds = new Set(data.map(item => item.id));
                 const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
                 
@@ -411,7 +397,7 @@ ipcMain.on('get_schedule', async (event) => {
             console.error('Schedule update failed:', error);
             event.reply('save_schedule_response', { 
                 success: false, 
-                error: error.message
+                error: error.message 
             });
         }
     });
@@ -674,5 +660,83 @@ app.whenReady().then(() => {
     if (!Notification.isSupported()) {
         console.log('通知がサポートされていません');
         return;
+    }
+});
+
+// スケジュール保存時にlockプロパティを含めるように修正
+function save_schedule_handler(tx, item) {
+    const scheduleData = {
+        title: item.title || '',
+        content: item.content || '',
+        start: new Date(item.start),
+        end: new Date(item.end),
+        group: item.group || 1,
+        style: item.style || 'background-color: #4CAF50;',
+        remind: item.remind || false,
+    };
+
+    if (item.lock !== undefined) { // lockフィールドが存在する場合のみ追加
+        scheduleData.lock = item.lock;
+    }
+
+    return scheduleData;
+}
+
+// ipcMain.on('save_schedule') 内の処理を修正
+ipcMain.on('save_schedule', async (event, data) => {
+    console.log('Received schedule to save:', data); 
+    try {
+        await prisma.$transaction(async (tx) => {
+            const existingSchedules = await tx.schedule.findMany({
+                select: { id: true }
+            });
+            const existingIds = new Set(existingSchedules.map(s => s.id));
+
+            for (const item of data) {
+                console.log('Processing schedule item:', item);
+
+                const scheduleData = save_schedule_handler(tx, item);
+
+                if (existingIds.has(item.id)) {
+                    console.log(`Updating existing schedule with ID: ${item.id}`);
+                    await tx.schedule.update({
+                        where: { id: item.id },
+                        data: scheduleData
+                    });
+                } else {
+                    console.log('Creating new schedule');
+                    await tx.schedule.create({
+                        data: {
+                            id: item.id,
+                            ...scheduleData
+                        }
+                    });
+                }
+            }
+
+            const newIds = new Set(data.map(item => item.id));
+            const idsToDelete = [...existingIds].filter(id => !newIds.has(id));
+            
+            if (idsToDelete.length > 0) {
+                await tx.schedule.deleteMany({
+                    where: {
+                        id: {
+                            in: idsToDelete
+                        }
+                    }
+                });
+            }
+        });
+        
+        event.reply('save_schedule_response', { 
+            success: true,
+            message: 'スケジュールが正常に更新されました'
+        });
+    } catch (error) {
+        console.error('Schedule update failed:', error);
+        event.reply('save_schedule_response', { 
+            success: false, 
+            error: error.message 
+        });
     }
 });

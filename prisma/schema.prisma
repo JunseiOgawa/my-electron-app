@@ -23,6 +23,7 @@ model Schedule {
     style     String?
     remind    Boolean  @default(false)
     notified  Boolean  @default(false)
+    lock      Boolean  @default(false)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }

@@ -7,7 +7,8 @@ const DEFAULT_SETTINGS = {
     chatRetentionDays: 30,
     remindEnabled: false,
     remindTime: '15',
-    loadWeather: false
+    loadWeather: false,
+    enableLock: false
 };
 
 
@@ -75,6 +76,11 @@ async function loadSettings() {
                 customRemindTimeInput.value = settings.customRemindTime || 1;
             }
         }
+
+        // ロック設定の反映
+        const enableLock = document.getElementById('enableLock');
+        enableLock.checked = settings.enableLock;
+
     } catch (error) {
         console.error('【setting.js】設定の読み込み中にエラーが発生しました:', error);
     }
@@ -93,7 +99,8 @@ async function saveSettings() {
             remindEnabled: document.getElementById('remind-enabled')?.checked || DEFAULT_SETTINGS.remindEnabled,
             remindTime: remindTimeRadio?.value || DEFAULT_SETTINGS.remindTime,
             customRemindTime: remindTimeRadio?.value === 'custom' ? parseInt(customRemindTime.value) || 1 : null,
-            loadWeather: document.getElementById('load-weather')?.checked || DEFAULT_SETTINGS.loadWeather
+            loadWeather: document.getElementById('load-weather')?.checked || DEFAULT_SETTINGS.loadWeather,
+            enableLock: document.getElementById('enableLock')?.checked || DEFAULT_SETTINGS.enableLock
         };
 
         if (newSettings.remindTime === 'simultaneous') {
