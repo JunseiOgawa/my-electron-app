@@ -46,39 +46,27 @@ function setupRemindControls() {
 async function loadSettings() {
     try {
         const settings = await window.electron.ipcRenderer.invoke('get-settings');
-        
-        // DOM要素に設定を反映
-        document.getElementById('theme').value = settings.theme || DEFAULT_SETTINGS.theme;
-        document.getElementById('reload-file').checked = settings.reloadFile || DEFAULT_SETTINGS.reloadFile;
-        document.getElementById('chat-retention').value = settings.chatRetentionDays || DEFAULT_SETTINGS.chatRetentionDays;
-        document.getElementById('remind-enabled').checked = settings.remindEnabled || DEFAULT_SETTINGS.remindEnabled;
-        
-        // リマインド時間のラジオボタン設定
-        const remindTimeValue = settings.remindTime || DEFAULT_SETTINGS.remindTime;
+
+        // リマインドの有効/無効を設定
+        const remindEnabled = document.getElementById('remind-enabled');
+        const remindSettings = document.getElementById('remind-settings');
+        remindEnabled.checked = settings.remindEnabled;
+        remindSettings.style.display = remindEnabled.checked ? 'block' : 'none';
+
+        // リマインド時間の設定
+        const remindTimeValue = settings.remindTime === '0' ? 'simultaneous' : settings.remindTime;
         const radioButton = document.querySelector(`input[name="remind-time"][value="${remindTimeValue}"]`);
         if (radioButton) {
             radioButton.checked = true;
-            
-            // カスタム時間の設定
+            const customTimeContainer = document.getElementById('custom-time-container');
+            customTimeContainer.style.display = remindTimeValue === 'custom' ? 'block' : 'none';
             if (remindTimeValue === 'custom') {
-                const customTimeContainer = document.getElementById('custom-time-container');
                 const customRemindTimeInput = document.getElementById('custom-remind-time');
-                
-                customTimeContainer.style.display = 'block';
                 customRemindTimeInput.value = settings.customRemindTime || 1;
             }
         }
-
-        document.getElementById('load-weather').checked = settings.loadWeather || DEFAULT_SETTINGS.loadWeather;
-
-        // リマインド設定の表示制御
-        const remindSettings = document.getElementById('remind-settings');
-        remindSettings.style.display = settings.remindEnabled ? 'block' : 'none';
-        
-        // テーマの適用
-        window.electron.ipcRenderer.send('theme-change', settings.theme || DEFAULT_SETTINGS.theme);
     } catch (error) {
-        console.error('設定の読み込みに失敗しました:', error);
+        console.error('【setting.js】設定の読み込み中にエラーが発生しました:', error);
     }
 }
 
@@ -97,6 +85,10 @@ async function saveSettings() {
             customRemindTime: remindTimeRadio?.value === 'custom' ? parseInt(customRemindTime.value) || 1 : null,
             loadWeather: document.getElementById('load-weather')?.checked || DEFAULT_SETTINGS.loadWeather
         };
+
+        if (newSettings.remindTime === 'simultaneous') {
+            newSettings.remindTime = '0';
+        }
 
         const result = await window.electron.ipcRenderer.invoke('save-settings', newSettings);
         

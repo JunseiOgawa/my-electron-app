@@ -96,13 +96,13 @@ function createMenu() {
             submenu: [
                 {
                     label: 'Open..',
-                    accelerator: 'CmdOrCtrl+O', // ショートカットキーを��定
+                    accelerator: 'CmdOrCtrl+O', // ショートカットキー
                     click: () => { openFile() } // 実行される関数
                 },
                 {
                     label: 'Save', // ラベルを追加
-                    accelerator: 'CmdOrCtrl+S', // ショートカットキーを設定
-                    click: () => { saveSchedule() } // 実行される関数
+                    accelerator: 'CmdOrCtrl+S',
+                    click: () => { saveSchedule() }
                 },
                 {
                     label: 'Exit',
@@ -136,9 +136,33 @@ function openFile() {
         console.error('Failed to open file:', err);
     });
 }
+// アプリケーション起動時の初期化処理を修正
 app.whenReady().then(async () => {
+    if (!Notification.isSupported()) {
+        console.log('通知がサポートされていません');
+        return;
+    }
+
+    // 設定を読み込む
+    const settings = loadSettings();
+    console.log('アプリ起動時の設定:', settings);
+
+    // リマインド間隔の初期設定
+    if (settings.remindTime === '0' || settings.remindTime === 'simultaneous') {
+        remindIntervalMinutes = 0;
+        console.log('同時リマインドモードで初期化');
+    } else {
+        remindIntervalMinutes = parseInt(settings.remindTime) || 15;
+        console.log(`リマインド間隔 ${remindIntervalMinutes} 分で初期化`);
+    }
+
+    // isRemindEnabledの初期設定
+    isRemindEnabled = settings.remindEnabled || false;
+    console.log(`リマインド機能: ${isRemindEnabled ? '有効' : '無効'}`);
+
+    // リマインドチェックを開始
+    checkReminders();
     createWindow();
-    createMenu();
 });
 
 //テーマ色の変更
@@ -151,26 +175,38 @@ ipcMain.on('theme-change', (event, theme) => {
     console.log(`テーマを${theme}に変更しました`);
 });
 
+// remindIntervalMinutesのデフォルト値を設定
+let remindIntervalMinutes = 15;
+
 ipcMain.on('update_remind_interval', (event, interval) => {
-    remindIntervalMinutes = interval;
-    console.log(`リマインド間隔が ${remindIntervalMinutes} 分に更新されました`);
+    console.log('受け取ったinterval:', interval); // デバッグ用
+
+    if (interval === 'simultaneous' || interval === '0') {
+        remindIntervalMinutes = 0;
+    } else {
+        remindIntervalMinutes = parseInt(interval) || 15;
+    }
+    
+    console.log(`リマインド間隔を ${remindIntervalMinutes} 分に設定しました`);
 });
-//settings.jsonの読み込み関数
+
+// loadSettings関数を修正
 function loadSettings() {
     try {
         if (fs.existsSync(settingsPath)) {
             const data = fs.readFileSync(settingsPath, 'utf-8');
+            console.log('読み込んだ設定ファイルの内容:', data); // デバッグ用
             settings = JSON.parse(data);
-        } else {
-            settings = {
-                theme: 'dark',
-                reloadFile: false,
-                chatRetentionDays: 30,
-                remindEnabled: false,
-                remindInterval: 15,
-                remindTime: '15',
-                loadWeather: false
-            };
+            
+            console.log('設定のremindTime:', settings.remindTime); // デバッグ用
+            
+            if (settings.remindTime === '0' || settings.remindTime === 'simultaneous') {
+                remindIntervalMinutes = 0;
+            } else {
+                remindIntervalMinutes = parseInt(settings.remindTime) || 15;
+            }
+            
+            console.log('設定後のremindIntervalMinutes:', remindIntervalMinutes); // デバッグ用
         }
         return settings;
     } catch (error) {
@@ -192,11 +228,36 @@ function saveSettings(settings) {
 
 ipcMain.handle('save-settings', async (event, newSettings) => {
     try {
+        console.log('新しい設定を保存します:', newSettings); // デバッグログ追加
         saveSettings(newSettings);
+        
+        // 設定保存直後にremindIntervalMinutesを更新
+        if (newSettings.remindTime === '0' || newSettings.remindTime === 'simultaneous') {
+            remindIntervalMinutes = 0;
+            console.log('リマインド間隔を0分に設定しました（即時）');
+        } else {
+            remindIntervalMinutes = parseInt(newSettings.remindTime) || 15;
+            console.log(`リマインド間隔を${remindIntervalMinutes}分に設定しました（時間指定）`);
+        }
+        
         return { success: true };
     } catch (error) {
         console.error('設定の保存に失敗しました:', error);
         return { success: false, error: error.message };
+    }
+});
+
+// update_remind_intervalイベントハンドラーも修正
+ipcMain.on('update_remind_interval', (event, interval) => {
+    console.log('update_remind_intervalイベント受信:', interval);
+    
+    if (interval === 'simultaneous' || interval === '0') {
+        remindIntervalMinutes = 0;
+        console.log('同時リマインドに設定');
+    } else {
+        const parsedInterval = parseInt(interval);
+        remindIntervalMinutes = parsedInterval || 15;
+        console.log(`リマインド間隔を${remindIntervalMinutes}分に設定`);
     }
 });
 
@@ -442,10 +503,6 @@ class NotificationManager {
         silent: false
       }).show();
     }
-      new Notification({
-        title: title,//1行目はタイトル
-        body: content//2行目は内容
-      }).show();
     }
   }
 
@@ -461,56 +518,109 @@ ipcMain.on('update_remind_enabled', (event, enabled) => {
 // 共通のリマインドチェック
 const notificationManager = new NotificationManager();
 async function checkReminders() {
+    console.log('-----リマインドチェック開始-----');
+    console.log('現在のremindIntervalMinutes:', remindIntervalMinutes);
+
     setInterval(async () => {
         try {
             const now = new Date();
-            const remindSchedules = await prisma.schedule.findMany({
-                where: {
-                    start: {
-                        gte: new Date(now.getTime() + 60000),
-                        lte: new Date(now.getTime() + (remindIntervalMinutes * 60000))
-                    },
-                    notified: false,
-                    remind: true
-                },
-            });
+            console.log(`\n現在時刻: ${now.toLocaleString()}`);
+            let remindSchedules = [];
 
-            // 同じ開始時刻のスケジュールをグループ化
-            const groupedSchedules = remindSchedules.reduce((acc, schedule) => {
-                const startTime = new Date(schedule.start).getTime();
-                if (!acc[startTime]) {
-                    acc[startTime] = [];
-                }
-                acc[startTime].push(schedule);
-                return acc;
-            }, {});
-
-            // グループごとに通知を送信
-            for (const [startTime, schedules] of Object.entries(groupedSchedules)) {
-                const titles = schedules.map(s => s.content).join(' と ');
-                const details = schedules.map(s => s.title).join('\n');
+            if (remindIntervalMinutes === 0) {
+                // 同時リマインドの場合
+                const queryStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0);
+                const queryEndTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() + 1, 0);
                 
-                await notificationManager.sendPlatformNotification(//remind表示部分
-                    `${titles}`,
-                    `${remindIntervalMinutes}分後に\n${details}があります。`
-                );
-
-                // 全てのスケジュールを通知済みに更新
-                await prisma.schedule.updateMany({
+                remindSchedules = await prisma.schedule.findMany({
                     where: {
-                        id: {
-                            in: schedules.map(s => s.id)
-                        }
+                        start: {
+                            gte: queryStartTime,
+                            lt: queryEndTime
+                        },
+                        notified: false,
+                        remind: true
                     },
-                    data: { 
-                        notified: true
-                    }
                 });
+            } else {
+                // 時間指定リマインドの場合
+                const futureTime = new Date(now.getTime() + remindIntervalMinutes * 60000);
+                console.log(`検索する未来の時刻: ${futureTime.toLocaleString()}`);
+
+                remindSchedules = await prisma.schedule.findMany({
+                    where: {
+                        start: {
+                            gte: new Date(futureTime.getFullYear(), futureTime.getMonth(), futureTime.getDate(), futureTime.getHours(), futureTime.getMinutes(), 0),
+                            lt: new Date(futureTime.getFullYear(), futureTime.getMonth(), futureTime.getDate(), futureTime.getHours(), futureTime.getMinutes() + 1, 0)
+                        },
+                        notified: false,
+                        remind: true
+                    },
+                });
+            }
+
+            console.log('検索結果件数:', remindSchedules.length);
+            if (remindSchedules.length > 0) {
+                console.log('検出されたスケジュール:', remindSchedules.map(s => ({
+                    id: s.id,
+                    title: s.content,
+                    start: s.start,
+                    notified: s.notified,
+                    remind: s.remind
+                })));
+
+                // 同じ開始時刻のスケジュールをグループ化
+                const groupedSchedules = remindSchedules.reduce((acc, schedule) => {
+                    const startTimeKey = new Date(schedule.start).getTime().toString();
+                    if (!acc[startTimeKey]) {
+                        acc[startTimeKey] = [];
+                    }
+                    acc[startTimeKey].push(schedule);
+                    return acc;
+                }, {});
+
+                // グループごとに通知を送信
+                for (const schedules of Object.values(groupedSchedules)) {
+                    const titles = schedules.map(s => s.content).join(' と ');
+                    const details = schedules.map(s => s.title).join('\n');
+                    
+                    let notificationMessage;
+                    switch(true) {
+                        case remindIntervalMinutes === 0:
+                            // 同時通知の場合
+                            notificationMessage = `今から\n${details}が始まりました。`;
+                            break;
+                        case remindIntervalMinutes > 0:
+                            // カスタム時間（1分以上）の場合
+                            notificationMessage = `${remindIntervalMinutes}分後に\n${details}があります。`;
+                            break;
+                        default:
+                            console.log('不正なリマインド時間設定です');
+                            return;
+                    }
+                
+                    await notificationManager.sendPlatformNotification(
+                        `${titles}`,
+                        notificationMessage
+                    );
+
+                    // 全てのスケジュールを通知済みに更新
+                    await prisma.schedule.updateMany({
+                        where: {
+                            id: {
+                                in: schedules.map(s => s.id)
+                            }
+                        },
+                        data: { 
+                            notified: true
+                        }
+                    });
+                }
             }
         } catch (error) {
             console.error('リマインドチェックエラー:', error);
         }
-    }, 20000); // 20秒ごとにチェック
+    }, 1000);
 }
 
 // アプリケーション起動時の初期化
@@ -519,13 +629,4 @@ app.whenReady().then(() => {
         console.log('通知がサポートされていません');
         return;
     }
-    checkReminders();
-});
-//テストコード一時的デバッグ用　起動時に通知を送信
-app.whenReady().then(() => {
-    const notificationManager = new NotificationManager();
-    notificationManager.sendPlatformNotification(
-        '【electron起動時】デバッグ通知',//1行目はタイトル
-        '【electron起動時】デバッグ用'//2行目は内容
-    );
 });

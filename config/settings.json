@@ -3,7 +3,7 @@
   "reloadFile": false,
   "chatRetentionDays": 30,
   "remindEnabled": true,
-  "remindTime": "5",
+  "remindTime": "0",
   "customRemindTime": null,
   "loadWeather": false
 }

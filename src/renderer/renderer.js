@@ -32,9 +32,9 @@ const ipcRenderer = window.electron.ipcRenderer;
 
 // renderer.js の initTimeline 関数を修正
 function initTimeline() {
-    console.log('initTimeline 関数が開始されました');//デバッグ用
+    console.log('【renderer.js】initTimeline 関数が開始されました');//デバッグ用
     const container = document.getElementById('timeline');
-    console.log('タイムラインコンテナを取得しました');//デバッグ用
+    console.log('【renderer.js】タイムラインコンテナを取得しました');//デバッグ用
 
     // items と groups を先に初期化
     items = new vis.DataSet();
@@ -44,7 +44,7 @@ function initTimeline() {
         { id: 3, content: 'レイヤー 3' },
         { id: 4, content: 'レイヤー 4' }
     ]);
-    console.log('items と groups を初期化');//デバッグ用
+    console.log('【renderer.js】items と groups を初期化');//デバッグ用
 
     const options = {
         start: new Date().setHours(0, 0, 0, 0),

@@ -1,14 +1,23 @@
 body {
             margin: 0;
-            padding: 10px;
+            padding: 3px;
+            padding-right: 7px;
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
         .container {
             display: grid;
             grid-template-columns: auto 1fr 1fr; /* 横3列 */
             grid-template-rows: auto 1fr 1fr 1fr; /* 縦4行 */
-            gap: 15px;
-            height: 100vh;
+            row-gap: 0px;
+            column-gap: 20px;
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-bottom: 10px;
+            height: 100vh; /* 変更なし */
+            max-height: 100vh; /* 最大高さを制限 */
+            overflow: hidden; /* containerのスクロールを無効化 */
+            box-sizing: border-box; /* paddingを高さに含める */
         }
         .current-date {
             text-align: right;
@@ -472,7 +481,9 @@ body {
 
     .vis-panel.vis-bottom,
     .vis-panel.vis-center,
-    .vis-panel.vis-left,
+    .vis-panel.vis-left {
+        border-top-left-radius: 0px;
+    }
     .vis-panel.vis-right {
         border-radius: 8px;
     }
