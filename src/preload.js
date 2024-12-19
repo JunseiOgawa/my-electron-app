@@ -23,3 +23,6 @@ contextBridge.exposeInMainWorld('electron', {
     // UUID生成関数を公開
     generateUUID: () => generateUUID()
 });
+contextBridge.exposeInMainWorld('api', {
+    closeSettingsWindow: () => ipcRenderer.send('close-settings-window'),
+});

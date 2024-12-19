@@ -10,6 +10,16 @@ const DEFAULT_SETTINGS = {
     loadWeather: false
 };
 
+
+window.addEventListener('DOMContentLoaded', () => {
+    const closeButton = document.getElementById('close-settings');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            window.api.closeSettingsWindow();
+        });
+    }
+});
+
 // リマインド設定の制御
 function setupRemindControls() {
     const remindEnabled = document.getElementById('remind-enabled');

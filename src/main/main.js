@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, Notification, nativeTheme} = require('electron');
+const { exec } = require('child_process');
 const path = require('path');//nodejsのpath 読み込み 先に読み込まないとエラー
 const fs = require('fs');
 
@@ -47,14 +48,44 @@ function createWindow() {
         mainWindow = null;
     });
 
+    // 追加: focus イベントハンドラー
+    mainWindow.on('focus', () => {
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+            playErrorSound();
+        }
+    });
+
     createMenu();
 }
+
+
+// メインウィンドウをちらつかせる関数
+function flickerWindow(window, times, interval) {
+    let count = 0;
+    const originalOpacity = window.getOpacity();
+
+    const flickerInterval = setInterval(() => {
+        // 透明度を切り替える
+        window.setOpacity(originalOpacity === 1 ? 0.8 : 1);
+        count++;
+        if (count >= times * 2) { // 各回ごとに透明度を2回切り替える
+            clearInterval(flickerInterval);
+            window.setOpacity(originalOpacity); // 元の透明度に戻す
+        }
+    }, interval);
+}
+
 
 function createSettingsWindow() {
     settingsWindow = new BrowserWindow({
         width: 600,
         height: 500,
         title: '設定',
+        parent: mainWindow,
+        modal: true,
+        resizable: false,          // ウィンドウのサイズ変更を不可にする
+        maximizable: false,        // 最大化ボタンを無効にする
+        minimizable: false,        // 最小化ボタンを無効にする
         autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, '..', 'preload.js'),
@@ -64,8 +95,7 @@ function createSettingsWindow() {
             enableRemoteModule: false,
             allowRunningInsecureContent: false
         }
-        
-    } );
+    });
 
     settingsWindow.loadFile(path.join(__dirname, '..', 'view', 'settings.html'));
 
@@ -78,6 +108,16 @@ function createSettingsWindow() {
 
     settingsWindow.on('closed', () => {
         settingsWindow = null;
+        mainWindow.flashFrame(false);
+    });
+
+    // ウィンドウのサイズ変更や最大化を試みたときに無効にする
+    settingsWindow.on('maximize', () => {
+        settingsWindow.unmaximize();
+    });
+
+    settingsWindow.on('minimize', () => {
+        settingsWindow.restore();
     });
 }
 
@@ -136,6 +176,12 @@ function openFile() {
         console.error('Failed to open file:', err);
     });
 }
+
+// エラー音を再生する関数　windowsのみ　おまじない関数
+function playErrorSound() {
+    exec('powershell -c (New-Object Media.SoundPlayer "C:\\Windows\\Media\\Windows Error.wav").PlaySync();');
+}
+
 // アプリケーション起動時の初期化処理を修正
 app.whenReady().then(async () => {
     if (!Notification.isSupported()) {
