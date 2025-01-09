@@ -22,11 +22,41 @@ let mainWindow;
 let settingsWindow = null;//設定ウィンドウ最初は非表示
 let tray = null;
 
+// アプリ終了状態の初期化
+app.isQuitting = false;
+
 function createTray() {
-    tray = new Tray(path.join(__dirname, 'icon.png'));
+    tray = new Tray(path.join(__dirname, '..', 'img', 'chaticon.ico')); // Trayアイコンのパスを変更
     const contextMenu = Menu.buildFromTemplate([
-        { label: '表示', click: () => mainWindow.show() },
-        { label: '終了', click: () => app.quit() }
+        { 
+            label: '表示', 
+            click: () => mainWindow.show() 
+        },
+        { type: 'separator' },
+        { 
+            label: '終了', 
+            click: () => {
+                // 終了前に保存を促すダイアログを表示
+                dialog.showMessageBox(mainWindow, {
+                    type: 'question',
+                    buttons: ['保存して終了', '保存せずに終了', 'キャンセル'],
+                    defaultId: 0,
+                    title: '確認',
+                    message: 'アプリケーションを終了しますか？'
+                }).then(result => {
+                    if (result.response === 0) {
+                        // 保存して終了
+                        saveSchedule();
+                        app.isQuitting = true;
+                        app.quit();
+                    } else if (result.response === 1) {
+                        // 保存せずに終了
+                        app.isQuitting = true;
+                        app.quit();
+                    }
+                });
+            } 
+        }
     ]);
     tray.setContextMenu(contextMenu);
 }
@@ -69,6 +99,7 @@ function createWindow() {
     });
 
     createMenu();
+    createTray();
 }
 
 
@@ -137,34 +168,35 @@ function createSettingsWindow() {
 function createMenu() {
     const template = [
         {
-            label: '閉じる',
-            submenu: [
-                {
-                    label: '完全にアプリを閉じる',
-                    click: () => { app.quit() } // アプリを終了
-                }
-            ]
-        },
-        {
-            label: 'File',
+            label: '操作',
             submenu: [
                 {
                     label: 'ファイルを開く',
-                    accelerator: 'CmdOrCtrl+O', // ショートカットキー
-                    click: () => { openFile() } // 実行される関数
+                    accelerator: 'CmdOrCtrl+O',
+                    click: () => { openFile() }
                 },
                 {
-                    label: '保存', // ラベルを追加
+                    label: '保存',
                     accelerator: 'CmdOrCtrl+S',
                     click: () => { saveSchedule() }
+                },
+                { type: 'separator' },
+                {
+                    label: '終了',
+                    accelerator: 'Alt+F4',
+                    click: () => {
+                        app.isQuitting = true;
+                        app.quit();
+                    }
                 }
-                
             ]
         }
     ];
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
+
+
 
 // ファイル選択ダイアログを開く
 function openFile() {
@@ -684,6 +716,7 @@ function save_schedule_handler(tx, item) {
         group: item.group || 1,
         style: item.style || 'background-color: #4CAF50;',
         remind: item.remind || false,
+        notified: item.hasOwnProperty('notified') ? item.notified : false
     };
 
     if (item.lock !== undefined) { // lockフィールドが存在する場合のみ追加
