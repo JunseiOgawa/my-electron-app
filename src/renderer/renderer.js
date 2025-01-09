@@ -30,7 +30,6 @@ let selectedItem = null;
 // メインプロセスとのIPC通信を設定
 const ipcRenderer = window.electron.ipcRenderer;
 
-// renderer.js の initTimeline 関数を修正
 function initTimeline() {
     console.log('【renderer.js】initTimeline 関数が開始されました');//デバッグ用
     const container = document.getElementById('timeline');
@@ -68,25 +67,40 @@ function initTimeline() {
             remove: false,      // すでに作った削除機能があるため無効
         },
         onMove: function(item, callback) {
+            // ロックされたアイテムの移動を防止
+            
+            console.log('【renderer.js】移動イベント発生:', {//デバッグ用
+                移動アイテムID: item.id,
+                移動アイテムデータ: item
+            });
+
+            const scheduleItem = items.get(item.id);
+
+            console.log('【renderer.js】取得したスケジュールアイテム:', {//デバッグ用
+                アイテム: scheduleItem,
+                ロック状態: scheduleItem ? scheduleItem.lock : undefined
+            });
+
+            if (scheduleItem && scheduleItem.lock) {
+                callback(null); // 移動をキャンセル
+                alert('ロックされたスケジュールは移動できません。');
+                return;
+            }
+    
             // 移動が完了したアイテムを取得
             const movedItem = items.get(item.id);
             if (!movedItem) {
                 console.error('Moved item not found:', item.id);
-                callback(null); // 移動をキャンセル
+                callback(null);
                 return;
             }
     
-            // 移動後のアイテムを更新
+            // 移動後のアイテムを更新（ロック状態を維持）
             const updatedItem = {
-                id: movedItem.id,
-                content: movedItem.content,
-                title: movedItem.title,
-                start: item.start,  // 新しい開始時間
-                end: item.end,      // 新しい終了時間
-                group: item.group,  // 新しいグループ
-                style: movedItem.style,
-                remind: movedItem.remind,
-                lock: movedItem.lock // lockプロパティを追加
+                ...movedItem,           // 既存のプロパティをすべて継承
+                start: item.start,      // 新しい開始時間
+                end: item.end,          // 新しい終了時間
+                group: item.group       // 新しいグループ
             };
     
             // タイムライン上のアイテムを更新
@@ -430,6 +444,10 @@ function updateCalendarInputType(scale) {
 
 // 削除確認モーダルを表示する関数
 function showDeleteModal() {
+    if (selectedItem.lock) {
+        // ロックされている場合はモーダルを表示しない
+        return;
+    }
     document.getElementById('delete-modal-overlay').style.display = 'block';
     document.getElementById('delete-modal').style.display = 'block';
 }
@@ -522,23 +540,41 @@ function clearForm() {
     document.getElementById('group').value = '1';
     document.getElementById('color').value = '#4CAF50';
     document.getElementById('remind').checked = false;
+    document.getElementById('lock').checked = false;    
 }
 // スケジュールを保存
 function saveSchedule() {
-    const schedule = items.get().map(item => ({
-        id: item.id || window.electron.generateUUID(),
-        title: item.title || '',
-        content: item.content || '',
-        start: item.start,
-        end: item.end,
-        group: item.group || 0,
-        style: item.style || 'background-color: #4CAF50;',
-        remind: item.remind || false, // remind値を追加
-        lock: item.lock || false // lockプロパティを追加
-    }));
+    const schedule = items.get().map(item => {
+        //ロック状態に応じてCSSをかける
+        // ベースとなる背景色を取得
+        let baseColor = '#4CAF50';
+        if (item.style && item.style.includes('background-color:')) {
+            const match = item.style.match(/background-color: ([^;]+);/);
+            if (match) baseColor = match[1];
+        }
+
+        // ロック状態に応じてスタイルを設定
+        let itemStyle = `background-color: ${baseColor};`;
+        if (item.lock) {
+            itemStyle += 'border: 3px solid yellow;';
+        }
+        return {
+            id: item.id || window.electron.generateUUID(),
+            title: item.title || '',
+            content: item.content || '',
+            start: item.start,
+            end: item.end,
+            group: item.group || 0,
+            style: itemStyle,
+            remind: item.remind || false, 
+            lock: item.lock || false 
+        };
+    });
+    
     console.log('Sending schedule to main process:', schedule);
     window.electron.ipcRenderer.send('save_schedule', schedule);
 }
+
 
 // モーダルを表示する関数
 function showModal() {
@@ -593,6 +629,10 @@ function setupModalClickHandlers() {
 
 // 編集モーダルを表示
 function showEditModal() {
+    if (selectedItem.lock) {
+        // ロックされている場合はモーダルを表示しない
+        return;
+    }
     // 編集モーダルの初期化
     if (!document.getElementById('editDateRange')._flatpickr) {
         flatpickr("#editDateRange", {
@@ -603,6 +643,7 @@ function showEditModal() {
     clearEditForm();
     }
     
+    setEditFormValues(selectedItem); // リマインドとロックの値を反映
     document.getElementById('edit-modal-overlay').style.display = 'block';
     document.getElementById('edit-modal').style.display = 'grid';
 }
@@ -638,19 +679,21 @@ function setEditFormValues(item) {
     document.getElementById('editGroup').value = item.group;
     
 
+    // リマインド状態の設定
     const editRemindCheckbox = document.getElementById('editRemind');
-
     if (editRemindCheckbox) {
         editRemindCheckbox.checked = Boolean(item.remind);
-        console.log('【renderer.js】リマインド状態をセット:', item.remind); // デバッグ用
-
-        if (!item.remind) {
-            console.log('【renderer.js】チェックボックスにチェックが入っていません');
-        }
+        console.log('【renderer.js】リマインド状態をセット:', item.remind);
     }
 
+    // ロック状態の設定を追加
+    const editLockCheckbox = document.getElementById('editLock');
+    if (editLockCheckbox) {
+        editLockCheckbox.checked = Boolean(item.lock);
+        console.log('【renderer.js】ロック状態をセット:', item.lock);
+    }
     if (item.style) {
-        const match = item.style.match(/background-color: (#[0-9a-fA-F]{6});/);
+        const match = item.style.match(/background-color: (#[0-9a-fA]{6});/);
         if (match) {
             document.getElementById('editColor').value = match[1];
         }
@@ -668,10 +711,10 @@ function setEditFormValues(item) {
     
     // 日付を設定
     editDatepicker._flatpickr.setDate([startDate, endDate]);
+    // ロック状態を設定
+    document.getElementById('editLock').checked = item.lock;
 }
 
-//編集モーダルのイベントリスナー
-//編集モーダルのイベントリスナー
 function setupEditModalListeners() {
     const editModal = document.getElementById('edit-modal');
     
@@ -700,6 +743,7 @@ function setupEditModalListeners() {
         const layer = parseInt(document.getElementById('editGroup').value, 10);
         const color = document.getElementById('editColor').value;
         const remind = document.getElementById('editRemind').checked; // リマインド値の取得は更新時に行う
+        const lockChecked = document.getElementById('editLock').checked;
     
         // バリデーション
         if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {
@@ -731,7 +775,8 @@ function setupEditModalListeners() {
             end: endDateTime,
             group: layer,
             style: `background-color: ${color};`,
-            remind: remind 
+            remind: remind,
+            lock: lockChecked
         };
     
         console.log('Updating item:', updatedItem); // デバッグログ
@@ -850,12 +895,28 @@ function setupEventListeners() {
         if (item) {
             selectedItem = items.get(item); // selectedItem を設定
             console.log('【renderer.js】選択されたアイテム:', selectedItem); // デバッグログ追加
+
+            // コンテキストメニューの要素を取得
             const editItem = document.getElementById('editItem');
+            const deleteItem = document.getElementById('deleteItem');
+            const lockItem = document.getElementById('lockItem');
+            const unlockItem = document.getElementById('unlockItem');
+
+            // ロック状態に応じてメニュー項目の表示を切り替え
             if (selectedItem.lock) {
-                editItem.classList.add('disabled');
+                // ロックされている場合
+                editItem.style.display = 'none';
+                deleteItem.style.display = 'none';
+                lockItem.style.display = 'none';
+                unlockItem.style.display = 'block';
             } else {
-                editItem.classList.remove('disabled');
+                // ロックされていない場合
+                editItem.style.display = 'block';
+                deleteItem.style.display = 'block';
+                lockItem.style.display = 'block';
+                unlockItem.style.display = 'none';
             }
+
             showContextMenu(props.event.pageX, props.event.pageY);
         } else {
             selectedItem = null;
@@ -937,6 +998,25 @@ function setupEventListeners() {
             showModal();
         }
         // アイテム上でのダブルクリック時は何もしない 誤動作防止
+    });
+
+    // ロック解除ボタンのイベントリスナーを追加
+    document.getElementById('unlockItem').addEventListener('click', () => {
+        if (selectedItem) {
+            selectedItem.lock = false;
+            items.update(selectedItem);
+            saveSchedule();
+        }
+        hideContextMenu();
+    });
+
+    document.getElementById('lockItem').addEventListener('click', () => {
+        if (!selectedItem) return;
+        selectedItem.lock = !selectedItem.lock;
+        items.update(selectedItem);
+        console.log(`【renderer.js】ロック状態を切り替えました: ${selectedItem.lock}`);
+        hideContextMenu();
+        saveSchedule();
     });
 }
 
@@ -1110,7 +1190,7 @@ function setupZoomSlider() {
         timeline.setWindow(newStart, newEnd, {animation: false});
     });
 
-    // タイムラインのズーム変更時にスラ���ダー更新
+    // タイムラインのズーム変更時にスライダー更新
     timeline.on('rangechange', function(properties) {
         if (!properties.byUser) return; // ユーザーの操作以外は無視
         
@@ -1455,7 +1535,8 @@ document.getElementById('updateButton').addEventListener('click', () => {
     const layer = parseInt(document.getElementById('editGroup').value, 10);
     const color = document.getElementById('editColor').value;
     const remind = document.getElementById('editRemind').checked;
-    console.log('更新時のリマインド値:', remind); // デバッグログ
+
+    const lockChecked = document.getElementById('editLock').checked;
 
     // バリデーションと更新処理
     if (!selectedDates || selectedDates.length !== 2 || !startTime || !endTime || !title || !memo) {
@@ -1486,7 +1567,8 @@ document.getElementById('updateButton').addEventListener('click', () => {
         end: endDateTime,
         group: layer,
         style: `background-color: ${color};`,
-        remind: remind
+        remind: remind,
+        lock: lockChecked
     };
 
     console.log('Updating item with remind:', updatedItem); // デバッグログ追加
@@ -1702,7 +1784,7 @@ timeline.on('contextmenu', (props) => {
     }
     
 });
-//最終
+
 // 設定の取得とロック機能の適用
 window.electron.ipcRenderer.invoke('get-settings').then(settings => {
     if (settings.enableLock) {
@@ -1728,7 +1810,7 @@ function createScheduleItem(data) {
         lock: settings.enableLock ? (data.lock || false) : false // 設定に基づきlockを設定
     };
 }
-//最終
+
 // 設定が変更された際にロック機能を適用/解除
 ipcRenderer.on('settings_updated', (event, newSettings) => {
     if (newSettings.enableLock) {
@@ -1743,7 +1825,6 @@ ipcRenderer.on('settings_updated', (event, newSettings) => {
         });
     }
 });
-//最終
 // スケジュール項目を表示する際にロック状態に応じてクラスを追加
 function displayScheduleItem(item) {
     const element = document.getElementById(item.id);
@@ -1752,11 +1833,12 @@ function displayScheduleItem(item) {
     } else {
         element.classList.remove('locked-item');
     }
-    // ...existing display logic...
+
 }
 
 // スケジュールのロード時にロック状態を反映
 window.electron.ipcRenderer.on('open_file', (data) => {
+// スケジュール選択時の処理
     items.clear();
     data.forEach(item => {
         items.add(item);
@@ -1764,4 +1846,134 @@ window.electron.ipcRenderer.on('open_file', (data) => {
     });
     timeline.setItems(items);
 });
-//最終
+
+function onScheduleSelect(item) {
+    selectedItem = item;
+    if (selectedItem.lock) {
+        // ロックされている場合、編集・削除ボタンを非表示
+        document.getElementById('editItem').style.display = 'none';
+        document.getElementById('deleteItem').style.display = 'none';
+    } else {
+        // ロックされていない場合、ボタンを表示
+        document.getElementById('editItem').style.display = 'block';
+        document.getElementById('deleteItem').style.display = 'block';
+    }
+
+    // ロックボタンのテキストを更新
+    const lockButton = document.getElementById('lockItem');
+    if (lockButton) {
+        lockButton.textContent = selectedItem.lock ? 'ロックを解除' : 'ロック';
+    }
+}
+
+
+// スケジュール選択時の処理を更新
+function onScheduleSelect(item) {
+    selectedItem = item;
+    if (selectedItem.lock) {
+        // ロックされている場合、編集・削除ボタンを非表示
+        document.getElementById('editItem').style.display = 'none';
+        document.getElementById('deleteItem').style.display = 'none';
+    } else {
+        // ロックされていない場合、ボタンを表示
+        document.getElementById('editItem').style.display = 'block';
+        document.getElementById('deleteItem').style.display = 'block';
+    }
+
+    // ロックボタンのテキストを更新
+    if (lockButton) {
+        lockButton.textContent = selectedItem.lock ? 'ロックを解除' : 'ロック';
+    }
+}
+
+// タイムラインの編集や削除を制限
+timeline.on('doubleClick', function (properties) {
+    const item = items.get(properties.item);
+    if (item && item.lock) {
+        // ロックされている場合は編集を防止
+        return;
+    }
+    // それ以外の場合は編集モーダルを表示
+    showEditModal();
+});
+
+// 削除確認モーダルを表示する関数を更新
+function showDeleteModal() {
+    if (selectedItem.lock) {
+        // ロックされている場合はモーダルを表示しない
+        return;
+    }
+    document.getElementById('delete-modal-overlay').style.display = 'block';
+    document.getElementById('delete-modal').style.display = 'block';
+}
+
+// 編集モーダルを表示する関数を更新
+function showEditModal() {
+    if (selectedItem.lock) {
+        // ロックされている場合はモーダルを表示しない
+        return;
+    }
+    // 編集モーダルの初期化
+    if (!document.getElementById('editDateRange')._flatpickr) {
+        flatpickr("#editDateRange", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            locale: "ja",
+        });
+    clearEditForm();
+    }
+    
+    setEditFormValues(selectedItem); // リマインドとロックの値を反映
+    document.getElementById('edit-modal-overlay').style.display = 'block';
+    document.getElementById('edit-modal').style.display = 'grid';
+}
+
+// ロック状態を切り替える統合関数
+function toggleLockState(itemId) {
+    const item = items.get(itemId);
+    if (!item) return;
+
+    // ロック状態を反転
+    const updatedItem = {
+        ...item,
+        lock: !item.lock
+    };
+
+    // UI更新
+    items.update(updatedItem);
+    
+    // コンテキストメニューの表示を更新
+    const editItem = document.getElementById('editItem');
+    const deleteItem = document.getElementById('deleteItem');
+    const lockItem = document.getElementById('lockItem');
+    const unlockItem = document.getElementById('unlockItem');
+
+    if (updatedItem.lock) {
+        editItem.style.display = 'none';
+        deleteItem.style.display = 'none';
+        lockItem.style.display = 'none';
+        unlockItem.style.display = 'block';
+    } else {
+        editItem.style.display = 'block';
+        deleteItem.style.display = 'block';
+        lockItem.style.display = 'block';
+        unlockItem.style.display = 'none';
+    }
+
+    // 1回だけ保存を実行
+    saveSchedule();
+    hideContextMenu();
+}
+
+// コンテキストメニューのイベントリスナーを修正
+document.getElementById('lockItem').addEventListener('click', () => {
+    if (selectedItem) {
+        toggleLockState(selectedItem.id);
+    }
+});
+
+document.getElementById('unlockItem').addEventListener('click', () => {
+    if (selectedItem) {
+        toggleLockState(selectedItem.id);
+    }
+});

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, Notification, nativeTheme} = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, Notification, nativeTheme,Tray} = require('electron');
 const { exec } = require('child_process');
 const path = require('path');//nodejsのpath 読み込み 先に読み込まないとエラー
 const fs = require('fs');
@@ -20,6 +20,16 @@ function generateUUID() {
 
 let mainWindow;
 let settingsWindow = null;//設定ウィンドウ最初は非表示
+let tray = null;
+
+function createTray() {
+    tray = new Tray(path.join(__dirname, 'icon.png'));
+    const contextMenu = Menu.buildFromTemplate([
+        { label: '表示', click: () => mainWindow.show() },
+        { label: '終了', click: () => app.quit() }
+    ]);
+    tray.setContextMenu(contextMenu);
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -44,8 +54,11 @@ function createWindow() {
         }
     });
 
-    mainWindow.on('closed', function () {
-        mainWindow = null;
+    mainWindow.on('close', (event) => {
+        if (!app.isQuitting) {
+            event.preventDefault();
+            mainWindow.hide();
+        }
     });
 
     // 追加: focus イベントハンドラー
@@ -334,7 +347,8 @@ ipcMain.on('get_schedule', async (event) => {
             end: schedule.end ? schedule.end.toISOString() : null,
             group: schedule.group,
             style: schedule.style,
-            remind: Boolean(schedule.remind)
+            remind: Boolean(schedule.remind),
+            lock: Boolean(schedule.lock)
         }));
         event.reply('get_schedule_response', formattedSchedules);
     } catch (error) {
@@ -550,13 +564,13 @@ ipcMain.on('update_remind_enabled', (event, enabled) => {
 // 共通のリマインドチェック
 const notificationManager = new NotificationManager();
 async function checkReminders() {
-    console.log('-----リマインドチェック開始-----');
-    console.log('現在のremindIntervalMinutes:', remindIntervalMinutes);
+    //console.log('-----リマインドチェック開始-----');
+    //console.log('現在のremindIntervalMinutes:', remindIntervalMinutes);
 
     setInterval(async () => {
         try {
             const now = new Date();
-            console.log(`\n現在時刻: ${now.toLocaleString()}`);
+            //console.log(`\n現在時刻: ${now.toLocaleString()}`);
             let remindSchedules = [];
 
             if (remindIntervalMinutes === 0) {
@@ -591,7 +605,7 @@ async function checkReminders() {
                 });
             }
 
-            console.log('検索結果件数:', remindSchedules.length);
+            //console.log('検索結果件数:', remindSchedules.length);
             if (remindSchedules.length > 0) {
                 console.log('検出されたスケジュール:', remindSchedules.map(s => ({
                     id: s.id,

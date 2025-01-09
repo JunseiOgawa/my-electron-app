@@ -8,7 +8,9 @@ const DEFAULT_SETTINGS = {
     remindEnabled: false,
     remindTime: '15',
     loadWeather: false,
-    enableLock: false
+    enableLock: false,
+    minimizeToTray: true,
+    startInBackground: false
 };
 
 

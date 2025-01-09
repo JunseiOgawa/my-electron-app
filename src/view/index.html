@@ -41,10 +41,11 @@
     </div> <!-- div.containerの閉じタグ -->
 
     <!-- モーダル関連の要素をdiv.containerの外側に移動 -->
-    <div id="context-menu">
-        <div class="context-menu-item" id="editItem">編集</div>
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" id="editItem" onclick="showEditModal()">編集</div>
         <div class="context-menu-item" id="lockItem">ロック</div>
-        <div class="context-menu-item" id="deleteItem">削除</div>
+        <div class="context-menu-item" id="unlockItem" style="display: none;">ロック解除</div>
+        <div class="context-menu-item" id="deleteItem" onclick="showDeleteModal()">削除</div>
     </div>
     <!-- モーダルウィンドウの更新 -->
     <div id="modal-overlay"></div>
@@ -81,6 +82,8 @@
         <div class="input-group">
             <label for="remind">リマインド:</label>
             <input type="checkbox" id="remind">
+            <label for="lock">ロック:</label>
+            <input type="checkbox" id="lock">
         </div>
         <!-- モーダル内の適切な位置に追加 -->
         <input type="hidden" id="scheduleDate">
@@ -133,12 +136,13 @@
         <div class="input-group">
             <label>カラー:</label>
             <input type="color" id="editColor">
-            <label>レイヤー:</label>
             <input type="number" id="editGroup" value="1">
         </div>
         <div class="input-group">
             <label for="editRemind">リマインド:</label>
             <input type="checkbox" id="editRemind"> 
+            <label for="editLock">ロック:</label>
+            <input type="checkbox" id="editLock" name="lock">
         </div>
         <input type="hidden" id="editScheduleDate">
         <input type="hidden" id="editEndDate">
