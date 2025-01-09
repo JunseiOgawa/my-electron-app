@@ -1014,7 +1014,6 @@ function setupEventListeners() {
         if (!selectedItem) return;
         selectedItem.lock = !selectedItem.lock;
         items.update(selectedItem);
-        console.log(`【renderer.js】ロック状態を切り替えました: ${selectedItem.lock}`);
         hideContextMenu();
         saveSchedule();
     });
@@ -1717,16 +1716,6 @@ document.getElementById('lockItem').addEventListener('click', () => {
         hideContextMenu();
     }
 });
-
-// スケジュールアイテムのロック状態をトグルする関数を追加
-function toggleLock(itemId) {
-    const item = items.get(itemId);
-    if (item) {
-        item.lock = !item.lock;
-        items.update(item);
-        saveSchedule();
-    }
-}
 
 // コンテキストメニューのロック項目のイベントリスナーを修正
 document.getElementById('lockItem').addEventListener('click', () => {
