@@ -137,10 +137,11 @@ function createSettingsWindow() {
 function createMenu() {
     const template = [
         {
-            label: 'Electron',
+            label: '閉じる',
             submenu: [
                 {
-                    label: 'About'
+                    label: '完全にアプリを閉じる',
+                    click: () => { app.quit() } // アプリを終了
                 }
             ]
         },
@@ -148,18 +149,14 @@ function createMenu() {
             label: 'File',
             submenu: [
                 {
-                    label: 'Open..',
+                    label: 'ファイルを開く',
                     accelerator: 'CmdOrCtrl+O', // ショートカットキー
                     click: () => { openFile() } // 実行される関数
                 },
                 {
-                    label: 'Save', // ラベルを追加
+                    label: '保存', // ラベルを追加
                     accelerator: 'CmdOrCtrl+S',
                     click: () => { saveSchedule() }
-                },
-                {
-                    label: 'Exit',
-                    click: () => { app.quit() } // アプリを終了
                 }
                 
             ]
