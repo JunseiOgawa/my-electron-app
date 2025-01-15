@@ -83,6 +83,7 @@ function initTimeline() {
 
             if (scheduleItem && scheduleItem.lock) {
                 callback(null); // 移動をキャンセル
+                alert('ロックされたスケジュールは移動できません。');
                 return;
             }
     
@@ -491,6 +492,7 @@ function initContextMenu() {
     // コンテキストメニューの編集項目のイベントリスナーを追加
     document.getElementById('editItem').addEventListener('click', () => {
         if (selectedItem && selectedItem.lock) {
+            alert('このスケジュールはロックされており、編集できません。');
             hideContextMenu();
             return;
         }
@@ -981,6 +983,7 @@ function setupEventListeners() {
     timeline.on('doubleClick', function (properties) {
         const item = items.get(properties.item);
         if (item && item.lock) {
+            alert('このスケジュールはロックされています。編集できません。');
             return;
         }
         if (properties.what === 'background') {
@@ -1011,6 +1014,7 @@ function setupEventListeners() {
         if (!selectedItem) return;
         selectedItem.lock = !selectedItem.lock;
         items.update(selectedItem);
+        console.log(`【renderer.js】ロック状態を切り替えました: ${selectedItem.lock}`);
         hideContextMenu();
         saveSchedule();
     });
@@ -1133,6 +1137,7 @@ document.getElementById('addButton').addEventListener('click', function() {
 
     // 開始時刻が終了時刻より前かチェック
     if (startDateTime >= endDateTime) {
+        alert('開始時刻は終了時刻より前に設定してください');
         return;
     }
 
@@ -1374,12 +1379,12 @@ window.electron.ipcRenderer.send('get_schedule');
 window.electron.ipcRenderer.on('get_schedule_response', (event, data) => {
     if (!data) {
         console.error('Received undefined data');
-        alert('【renderer.js】スケジュールの取得に失敗しました。　このアラートが出た場合は再起動してください一部の機能が制限されます');
+        alert('【renderer.js】スケジュールの取得に失敗しました。　このアラートが出た場合は再起動');
         return;
     }
 
     if (data.error) {
-        alert(`【renderer.js】スケジュールの取得に失敗しました: ${data.error}　このアラートが出た場合は再起動してください一部の機能が制限されます`);
+        alert(`【renderer.js】スケジュールの取得に失敗しました: ${data.error}　このアラートが出た場合は再起動`);
         return;
     }
 
@@ -1712,6 +1717,16 @@ document.getElementById('lockItem').addEventListener('click', () => {
         hideContextMenu();
     }
 });
+
+// スケジュールアイテムのロック状態をトグルする関数を追加
+function toggleLock(itemId) {
+    const item = items.get(itemId);
+    if (item) {
+        item.lock = !item.lock;
+        items.update(item);
+        saveSchedule();
+    }
+}
 
 // コンテキストメニューのロック項目のイベントリスナーを修正
 document.getElementById('lockItem').addEventListener('click', () => {

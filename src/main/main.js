@@ -593,13 +593,15 @@ ipcMain.on('update_remind_enabled', (event, enabled) => {
 // 共通のリマインドチェック
 const notificationManager = new NotificationManager();
 async function checkReminders() {
-    //console.log('-----リマインドチェック開始-----');
-    //console.log('現在のremindIntervalMinutes:', remindIntervalMinutes);
+    console.log('-----リマインドチェック開始-----');
+    console.log('現在のremindIntervalMinutes:', remindIntervalMinutes);
 
     setInterval(async () => {
+        const now = new Date();
+        console.log(`\n現在時刻: ${now.toLocaleString()}`);
         try {
             const now = new Date();
-            //console.log(`\n現在時刻: ${now.toLocaleString()}`);
+            console.log(`\n現在時刻: ${now.toLocaleString()}`);
             let remindSchedules = [];
 
             if (remindIntervalMinutes === 0) {
@@ -634,7 +636,7 @@ async function checkReminders() {
                 });
             }
 
-            //console.log('検索結果件数:', remindSchedules.length);
+            console.log('検索結果件数:', remindSchedules.length);
             if (remindSchedules.length > 0) {
                 console.log('検出されたスケジュール:', remindSchedules.map(s => ({
                     id: s.id,
