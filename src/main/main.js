@@ -9,7 +9,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 app.setAppUserModelId('スケジュール管理ソフト');//通知で表示されるアプリ名前;
 
-// UUIDの生成関数をmain.js内で直接定義
+// UUIDの生成関数をmain.js内で直接使うかわからない
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -195,8 +195,6 @@ function createMenu() {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
-
-
 
 // ファイル選択ダイアログを開く
 function openFile() {
