@@ -784,3 +784,11 @@ ipcMain.on('save_schedule', async (event, data) => {
         });
     }
 });
+
+// ロック設定のIPCハンドリングを追加
+ipcMain.on('update_lock_setting', (event, isEnabled) => {
+    // 設定を保存または適用する処理
+    // 例: settings.lockEnabled = isEnabled;
+    // 必要に応じてメインウィンドウに通知
+    mainWindow.webContents.send('lock_setting_updated', isEnabled);
+});

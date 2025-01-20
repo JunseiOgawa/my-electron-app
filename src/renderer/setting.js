@@ -130,6 +130,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // 設定保存ボタンのイベントリスナー
     document.getElementById('apply-settings')?.addEventListener('click', saveSettings);
+
+    document.getElementById('enableLock').addEventListener('change', (event) => {
+        const isEnabled = event.target.checked;
+        window.electron.ipcRenderer.send('update_lock_setting', isEnabled);
+    });
 });
 
 // リマインド有効状態の確認用関数

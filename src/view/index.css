@@ -662,6 +662,7 @@ body {
 .locked-item {
     background-color: #f44336 !important; /* 赤色で強調 　いったん今は分かりやすく赤だがのちのち鍵アイコンにする*/
     cursor: not-allowed;
+    border: 2px solid yellow;
 }
 
 .dark-mode {
