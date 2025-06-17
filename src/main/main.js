@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const settingsPath = path.join(__dirname, '..', '..', 'config', 'settings.json');//設定ファイルのパス
 let settings = {};//設定ファイルの内容を格納する変数
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');//prismaの読み込み
 const prisma = new PrismaClient();
 app.setAppUserModelId('スケジュール管理ソフト');//通知で表示されるアプリ名前;
 
@@ -706,7 +706,7 @@ app.whenReady().then(() => {
     }
 });
 
-// スケジュール保存時にlockプロパティを含めるように修正
+
 function save_schedule_handler(tx, item) {
     const scheduleData = {
         title: item.title || '',
@@ -719,14 +719,13 @@ function save_schedule_handler(tx, item) {
         notified: item.hasOwnProperty('notified') ? item.notified : false
     };
 
-    if (item.lock !== undefined) { // lockフィールドが存在する場合のみ追加
+    if (item.lock !== undefined) { 
         scheduleData.lock = item.lock;
     }
 
     return scheduleData;
 }
 
-// ipcMain.on('save_schedule') 内の処理を修正
 ipcMain.on('save_schedule', async (event, data) => {
     console.log('Received schedule to save:', data); 
     try {

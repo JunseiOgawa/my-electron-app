@@ -3,7 +3,6 @@ window.onerror = function(message, source, lineno, colno, error) {
     console.error(`エラー: ${message} at ${source}:${lineno}:${colno}`);
 };
 
-// 現在の日付を表示
 function updateDateTime() {
     const now = new Date();
     const dateStr = now.toLocaleDateString('ja-JP', {
