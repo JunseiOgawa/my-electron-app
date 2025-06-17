@@ -86,7 +86,6 @@ function initTimeline() {
                 return;
             }
     
-            // 移動が完了したアイテムを取得
             const movedItem = items.get(item.id);
             if (!movedItem) {
                 console.error('Moved item not found:', item.id);
@@ -94,7 +93,7 @@ function initTimeline() {
                 return;
             }
     
-            // 移動後のアイテムを更新（ロック状態を維持）
+            
             const updatedItem = {
                 ...movedItem,           // 既存のプロパティをすべて継承
                 start: item.start,      // 新しい開始時間
@@ -1215,7 +1214,6 @@ function openChat() {
     window.electron.ipcRenderer.send('get_memos');
 }
 
-// メモ表示用のリスナーを修正
 window.electron.ipcRenderer.on('get_memos_response', (event, response) => {
     console.log('メモデータを受信:', response);
     
